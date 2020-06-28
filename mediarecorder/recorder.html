@@ -121,6 +121,8 @@
         blobUrl = window.URL.createObjectURL(videoBlob);
 
         // download
+        anchor.download = 'recorded.webm';
+        anchor.href = blobUrl;
 
         if (blobUrl) {
             playbackVideo.src = blobUrl;
