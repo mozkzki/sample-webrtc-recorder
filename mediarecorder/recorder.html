@@ -70,13 +70,70 @@
 
     // ==== (2) 録画 ====
     // -- 録画開始 --
-    function startRecording() {}
+    function startRecording() {
+        if (!localStream) {
+            console.warn('stream not ready');
+            return;
+        }
+        if (recorder) {
+            console.warn('already recording');
+            return;
+        }
+
+        recorder = new MediaRecorder(localStream);
+
+        chunks = [];
+
+        recorder.ondataavailable = function (evt) {
+            console.log("data available: evt.data.type=" + evt.data.type + " size=" + evt.data.size);
+            chunks.push(evt.data);
+        };
+
+        recorder.onstop = function (evt) {
+            console.log("recorder.onstop(), so playback");
+            recorder = null;
+            playRecorded();
+        };
+
+        recorder.start(1000);
+        console.log("start recording");
+    }
 
     // -- 録画停止 -- 
-    function stopRecording() {}
+    function stopRecording() {
+        if (recorder) {
+            recorder.stop();
+            console.log("stop recording");
+        }
+    }
 
     // -- 再生 --
-    function playRecorded() {}
+    function playRecorded() {
+        if (!blobUrl) {
+            window.URL.revokeObjectURL(blobUrl);
+            blobUrl = null;
+        }
+
+        const videoBlob = new Blob(chunks, {
+            type: "video/webm"
+        });
+
+        blobUrl = window.URL.createObjectURL(videoBlob);
+
+        // download
+
+        if (blobUrl) {
+            playbackVideo.src = blobUrl;
+
+            playbackVideo.onended = function () {
+                playbackVideo.pause();
+                playbackVideo.src = "";
+            }
+
+            playbackVideo.play();
+        }
+
+    }
     // ==== (2) 録画 ====
 </script>
 
