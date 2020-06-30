@@ -88,14 +88,14 @@
     var roseImage = new Image();
     // 画像のパス
     var portraitImagePath = [
-        './img/roses_portrait_1.png',
-        './img/roses_portrait_2.png',
-        './img/roses_portrait_3.png'
+        './img/roses_portrait_1.jpg',
+        './img/roses_portrait_2.jpg',
+        './img/roses_portrait_3.jpg'
     ];
     var landscapeImagePath = [
-        './img/roses_landscape_1.png',
-        './img/roses_landscape_2.png',
-        './img/roses_landscape_3.png'
+        './img/roses_landscape_1.jpg',
+        './img/roses_landscape_2.jpg',
+        './img/roses_landscape_3.jpg'
     ];
 
     var track = new clm.tracker({
@@ -215,7 +215,7 @@
         // context.drawImage(roseImage, 0, 0, canvas.width, canvas.height);
 
         roseImage.addEventListener('load', function () {
-            context.drawImage(roseImage, 0, 0, canvas.width, canvas.height);
+            context.drawImage(roseImage, 0, 0, 240, 180);
         }, false);
 
 
