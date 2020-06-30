@@ -7,6 +7,17 @@
 </head>
 
 <body>
+    <!-- position: absolute; top: 0px; left: 0px;  -->
+    <div style="position: relative; width: 240px">
+        <video id="local_video" autoplay style="width: 240px; height: 180px; border: 1px solid black;"></video>
+        <div id="container"></div>
+        <div id="section" style="position: absolute; width: 240px; height: 180px; top: 0px; left: 0px;">
+            <canvas class="canvas-layer" id="canvasLayer"></canvas>
+            <canvas class="canvas-layer" id="canvasInterfaceLayer"></canvas>
+        </div>
+        <canvas id="overlay" class="overlay" style="width: 240px; height: 180px; top: 0px; left: 0px;"></canvas>
+    </div>
+
     Recording with Firefox 48 / Camera 53<br />
     <button onclick="startVideo()">Start Camera</button>
     <button onclick="stopVideo()">Stop Camera</button>
@@ -34,15 +45,183 @@
     <button onclick="removePlaybackVideos()">Remove all</button>
     <!-- for algo (time trim) -->
     <!-- for wave and ghost -->
-    <div id="container">
-        <video id="local_video" autoplay style="width: 240px; height: 180px; border: 1px solid black;"></video>
-    </div>
 </body>
+<!-- ライブラリ -->
+<script src="./js/lib/clmtrackr.js"></script>
+<script src="./js/lib/emotion_classifier.js"></script>
+<script src="./js/lib/emotionmodel.js"></script>
+<!-- 顔のモデル -->
+<script src="./js/lib/model_pca_20_svm.js"></script>
+<!-- (4) Canvas利用のお絵かきツールの録画 -->
+<!-- https://github.com/woohoeon/responsive-canvas-painter から -->
+<script type="text/javascript" src="js/painter.js"></script>
+<script>
+    (() => {
+
+        const painter = canvasPainter('canvasLayer', 'canvasInterfaceLayer', '240', '180');
+
+        painter.init({
+            type: 'pen',
+            weight: 3,
+            cap: 'round',
+            color: '#ff5fa6'
+        });
+
+    })();
+</script>
+<!-- (4) Canvas利用のお絵かきツールの録画 -->
 <script type="text/javascript">
     // ==== (1) カメラ映像の取得の準備 ====
     var localVideo = document.getElementById('local_video');
     var localStream = null;
     // ==== (1) カメラ映像の取得の準備 ====
+
+    // 顔認識テスト
+    var canvas = document.querySelector('#overlay');
+    var context = canvas.getContext('2d');
+
+    var isPortrait = true;
+    var imageData;
+
+    var isHappy = false;
+    var happyLevel;
+    var roseImage = new Image();
+    // 画像のパス
+    var portraitImagePath = [
+        './img/roses_portrait_1.png',
+        './img/roses_portrait_2.png',
+        './img/roses_portrait_3.png'
+    ];
+    var landscapeImagePath = [
+        './img/roses_landscape_1.png',
+        './img/roses_landscape_2.png',
+        './img/roses_landscape_3.png'
+    ];
+
+    var track = new clm.tracker({
+        useWebGL: true
+    });
+    var emotionClassifier = new emotionClassifier();
+
+    function adjustVideo() {
+        // 映像が画面幅いっぱいに表示されるように調整
+        var ratio = window.innerWidth / localVideo.videoWidth;
+
+        localVideo.width = window.innerWidth;
+        localVideo.height = localVideo.videoHeight * ratio;
+        canvas.width = localVideo.width;
+        canvas.height = localVideo.height;
+    }
+
+    function adjustProportions() {
+        var ratio = localVideo.videoWidth / localVideo.videoHeight;
+
+        if (ratio < 1) {
+            // 画面縦長フラグ
+            isPortrait = false;
+        }
+        localVideo.width = Math.round(localVideo.height * ratio);
+        canvas.width = localVideo.width;
+        canvas.height = localVideo.height;
+    }
+
+    function startTracking() {
+        // トラッキング開始
+        track.start(localVideo);
+        drawLoop1();
+    }
+
+    function drawLoop() {
+        // 描画をクリア
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        // videoをcanvasにトレース
+        context.drawImage(localVideo, 0, 0, canvas.width, canvas.height);
+        if (track.getCurrentPosition()) {
+            // 顔のパーツの現在位置が存在
+            track.draw(canvas);
+        }
+        requestAnimationFrame(drawLoop);
+    }
+
+    function drawLoop1() {
+        // 描画をクリア
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        // videoをcanvasにトレース
+        // context.drawImage(localVideo, 0, 0, canvas.width, canvas.height);
+
+        // canvasの情報を取得
+        // imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+
+        if (track.getCurrentPosition()) {
+            // 顔のパーツの現在位置が存在
+            determineEmotion();
+            if (isHappy) {
+                makeRosesBloom(happyLevel);
+            }
+        }
+        requestAnimationFrame(drawLoop1);
+    }
+
+    track.init(pModel);
+    emotionClassifier.init(emotionModel);
+
+    function determineEmotion() {
+        // 顔の顔のパーツのパラメータ
+        var currentParam = track.getCurrentParameters();
+        var emotionResult = emotionClassifier.meanPredict(currentParam);
+
+        // console.log(emotionResult)
+
+        if (emotionResult) {
+            for (var param in emotionResult) {
+                var emotion = emotionResult[param].emotion;
+                var value = emotionResult[param].value;
+
+                if (value) {
+                    score = value.toFixed(1) * 100;
+                    switch (emotion) {
+                        case 'happy':
+                            if (80 < score) {
+                                happyLevel = 2;
+                                isHappy = true;
+                            } else if (70 < score) {
+                                happyLevel = 1;
+                                isHappy = true;
+                            } else if (60 < score) {
+                                happyLevel = 0;
+                                isHappy = true;
+                            } else {
+                                isHappy = false;
+                            }
+                            break;
+                    }
+                }
+            }
+        }
+    }
+    // バラの画像描画処理
+    function makeRosesBloom(level) {
+        // for (i = 0; i < level; i++) {
+        if (isPortrait) {
+            roseImage.src = portraitImagePath[level];
+        } else {
+            roseImage.src = landscapeImagePath[level];
+        }
+
+        console.log(roseImage.src)
+        // console.log(canvas.width)
+        // console.log(canvas.height)
+
+        // context.drawImage(roseImage, 0, 0, canvas.width, canvas.height);
+
+        roseImage.addEventListener('load', function () {
+            context.drawImage(roseImage, 0, 0, canvas.width, canvas.height);
+        }, false);
+
+
+        // }
+    }
+
 
     // ==== (2) 録画の準備 ====
     // --- recording ---
@@ -69,6 +248,14 @@
 
                 // videoタグで表示
                 localVideo.srcObject = localStream; // Chrome 53から使える (window.URL.createObjectURLを使わなくても良い)
+
+                // 動画のメタ情報のロードが完了したら実行
+                localVideo.onloadedmetadata = function () {
+                    // adjustProportions();
+                    adjustVideo();
+                    startTracking();
+                };
+
             }).catch(function (error) { // error
                 console.error('mediaDevice.getUserMedia() error:', error);
                 return;
@@ -264,12 +451,15 @@
         }
 
         var newVideo = document.createElement('video');
-        newVideo.style.width = '200px';
-        newVideo.style.height = '150px';
-        newVideo.style.border = 'none'; //1px solid';
+        newVideo.style.width = '240px';
+        newVideo.style.height = '180px';
+        newVideo.style.border = '1px solid';
+        // newVideo.style.border = 'none'; //1px solid';
         newVideo.style.position = "absolute";
-        newVideo.style.left = (overlapLeft + 'px');
-        newVideo.style.top = '300px';
+        // newVideo.style.left = (overlapLeft + 'px');
+        newVideo.style.left = '0px';
+        // newVideo.style.top = '300px';
+        newVideo.style.top = '0px';
         newVideo.style.opacity = 0.6;
         overlapLeft += overlapPitch;
 
@@ -278,7 +468,9 @@
         newVideo.src = blobUrl;
         newVideo.loop = "1";
         newVideo.onended = function () {
-            newVideo.play(); // リピート再生
+            console.log("onended!!!!!!!!!!!!!!!!!!!")
+            // newVideo.play(); // リピート再生
+            container.removeChild(newVideo); // 取り除く
         };
 
         if (startPoint) {
