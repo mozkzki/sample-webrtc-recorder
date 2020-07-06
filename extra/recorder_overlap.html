@@ -1,21 +1,52 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
 
 <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <title>MeidaRecorder</title>
+    <link rel="stylesheet" href="css/test.css" type="text/css" />
 </head>
 
 <body>
     <!-- position: absolute; top: 0px; left: 0px;  -->
-    <div style="position: relative; width: 240px">
+    <div style="position: relative; width: 240px;">
         <video id="local_video" autoplay style="width: 240px; height: 180px; border: 1px solid black;"></video>
         <div id="container"></div>
-        <div id="section" style="position: absolute; width: 240px; height: 180px; top: 0px; left: 0px;">
+        <div id="section" style="
+          position: absolute;
+          width: 240px;
+          height: 180px;
+          top: 0px;
+          left: 0px;
+        ">
             <canvas class="canvas-layer" id="canvasLayer"></canvas>
             <canvas class="canvas-layer" id="canvasInterfaceLayer"></canvas>
         </div>
+    </div>
+
+    <div id="container_ball" style="position: relative; width: 240px;">
         <canvas id="overlay" class="overlay" style="width: 240px; height: 180px; top: 0px; left: 0px;"></canvas>
+        <canvas id="overlay2" class="overlay2" style="
+          position: absolute;
+          width: 240px;
+          height: 180px;
+          top: 0px;
+          left: 0px;
+        "></canvas>
+        <canvas id="overlay_ball" class="overlay_ball" style="
+          position: absolute;
+          width: 240px;
+          height: 180px;
+          top: 0px;
+          left: 0px;
+        "></canvas>
+        <div id="overlay3" class="overlay3" style="
+          position: absolute;
+          width: 240px;
+          height: 180px;
+          top: 0px;
+          left: 0px;
+        "><img id="ball" class="ball" /></div>
     </div>
 
     Recording with Firefox 48 / Camera 53<br />
@@ -26,7 +57,6 @@
     <button onclick="stopRecording()">Stop Recording</button>
     <a href="#" id="downloadlink">Download</a>
     <br />
-
 
     <video id="playback_video" controls="1" autoplay
         style="width: 240px; height: 180px; border: 1px solid black;"></video>
@@ -43,6 +73,7 @@
     <!-- for algo (time trim) -->
     <button onclick="addOverlapPlayer()">Add Overlapt</button>
     <button onclick="removePlaybackVideos()">Remove all</button>
+    <button onclick="drawBall()">DrawBall</button>
     <!-- for algo (time trim) -->
     <!-- for wave and ghost -->
 </body>
@@ -57,51 +88,84 @@
 <script type="text/javascript" src="js/painter.js"></script>
 <script>
     (() => {
-
-        const painter = canvasPainter('canvasLayer', 'canvasInterfaceLayer', '240', '180');
+        const painter = canvasPainter(
+            "canvasLayer",
+            "canvasInterfaceLayer",
+            "240",
+            "180"
+        );
 
         painter.init({
-            type: 'pen',
+            type: "pen",
             weight: 3,
-            cap: 'round',
-            color: '#ff5fa6'
+            cap: "round",
+            color: "#ff5fa6",
         });
-
     })();
 </script>
 <!-- (4) Canvas利用のお絵かきツールの録画 -->
 <script type="text/javascript">
     // ==== (1) カメラ映像の取得の準備 ====
-    var localVideo = document.getElementById('local_video');
+    var localVideo = document.getElementById("local_video");
     var localStream = null;
     // ==== (1) カメラ映像の取得の準備 ====
 
     // 顔認識テスト
-    var canvas = document.querySelector('#overlay');
-    var context = canvas.getContext('2d');
+    var canvas = document.querySelector("#overlay");
+    var context = canvas.getContext("2d");
+    let canvas2 = document.querySelector("#overlay2");
+    let context2 = canvas2.getContext("2d");
+    let canvas_ball = document.querySelector("#overlay_ball");
+    let context_ball = canvas_ball.getContext("2d");
 
-    var isPortrait = true;
     var imageData;
 
     var isHappy = false;
     var happyLevel;
     var roseImage = new Image();
+    var ballImage = new Image();
     // 画像のパス
     var portraitImagePath = [
-        './img/roses_portrait_1.jpg',
-        './img/roses_portrait_2.jpg',
-        './img/roses_portrait_3.jpg'
+        "./img/roses_portrait_1.png",
+        "./img/roses_portrait_2.jpg",
+        "./img/roses_portrait_3.jpg",
     ];
     var landscapeImagePath = [
-        './img/roses_landscape_1.jpg',
-        './img/roses_landscape_2.jpg',
-        './img/roses_landscape_3.jpg'
+        "./img/roses_landscape_1.jpg",
+        "./img/roses_landscape_2.jpg",
+        "./img/roses_landscape_3.jpg",
     ];
 
     var track = new clm.tracker({
-        useWebGL: true
+        useWebGL: true,
     });
     var emotionClassifier = new emotionClassifier();
+
+    function drawBall() {
+        var newImage = document.getElementById("ball");
+        newImage.src = "./img/ball.png";
+        newImage.alt = "ball";
+        newImage.style.display = "block"
+        newImage.classList.toggle("active");
+        timer();
+
+        //   console.log("draw !");
+        //   ballImage.onload = function () {
+        //     // var canvas = document.querySelector("#ball");
+        //     // var context = canvas.getContext("2d");
+        //     // console.log("onload !");
+        //     element.classList.toggle("should-be-toggled");
+        //     context_ball.drawImage(
+        //       ballImage,
+        //       0,
+        //       0,
+        //       canvas_ball.width,
+        //       canvas_ball.height
+        //     );
+        //     // context.drawImage(roseImage, 0, 0);
+        //   };
+        //   ballImage.src = "img/ball.png";
+    }
 
     function adjustVideo() {
         // 映像が画面幅いっぱいに表示されるように調整
@@ -109,18 +173,6 @@
 
         localVideo.width = window.innerWidth;
         localVideo.height = localVideo.videoHeight * ratio;
-        canvas.width = localVideo.width;
-        canvas.height = localVideo.height;
-    }
-
-    function adjustProportions() {
-        var ratio = localVideo.videoWidth / localVideo.videoHeight;
-
-        if (ratio < 1) {
-            // 画面縦長フラグ
-            isPortrait = false;
-        }
-        localVideo.width = Math.round(localVideo.height * ratio);
         canvas.width = localVideo.width;
         canvas.height = localVideo.height;
     }
@@ -143,23 +195,82 @@
         requestAnimationFrame(drawLoop);
     }
 
+    zahyo_x = 0
+    zahyo_y = 0
+
     function drawLoop1() {
         // 描画をクリア
         context.clearRect(0, 0, canvas.width, canvas.height);
         // videoをcanvasにトレース
-        // context.drawImage(localVideo, 0, 0, canvas.width, canvas.height);
+        context.drawImage(localVideo, 0, 0, canvas.width, canvas.height);
 
-        // canvasの情報を取得
-        // imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+        zahyo_x += 1
+        zahyo_y += 1
+        if (zahyo_x > canvas_ball.width) zahyo_x = 0;
+        if (zahyo_y > canvas_ball.height) zahyo_y = 0;
 
-        if (track.getCurrentPosition()) {
+        // ball描画
+        ballImage.className = "ball";
+        ballImage.onload = function () {
+            // console.log("eye[0]" + eye[0]);
+            // console.log("eye[1]" + eye[1]);
+            // element.classList.toggle("should-be-toggled");
+            context_ball.clearRect(0, 0, canvas_ball.width, canvas_ball.height);
+            context_ball.drawImage(
+                ballImage,
+                zahyo_x,
+                zahyo_y,
+                // eye[0],
+                // eye[1],
+                canvas_ball.width,
+                canvas_ball.height
+            );
+            // context.drawImage(roseImage, 0, 0);
+        };
+        ballImage.src = "";
+        ballImage.src = "img/ball.png";
+
+        positions = track.getCurrentPosition()
+        if (positions) {
+            eye = positions[32]
+
+            track.draw(canvas);
+
+            console.log("get potision");
+
             // 顔のパーツの現在位置が存在
             determineEmotion();
-            if (isHappy) {
-                makeRosesBloom(happyLevel);
+            if (isHappy && happyLevel > 1) {
+                console.log("happy!");
+                roseImage.onload = function () {
+                    console.log("load!");
+                    // context.clearRect(0, 0, canvas.width, canvas.height);
+                    // context.drawImage(localVideo, 0, 0, canvas.width, canvas.height);
+                    // let canvas2 = document.querySelector("#overlay2");
+                    // let context2 = canvas2.getContext("2d");
+                    context2.drawImage(roseImage, 0, 0, canvas2.width, canvas2.height);
+                    // canvas.toggleClass('buruburu');
+                    timer();
+                };
+                roseImage.src = portraitImagePath[0];
             }
         }
         requestAnimationFrame(drawLoop1);
+    }
+
+    timerId = null;
+
+    function timer() {
+        timerId = setTimeout(deleteImage, 2000);
+    }
+
+    function deleteImage() {
+        context2.clearRect(0, 0, canvas2.width, canvas2.height);
+
+        var newImage = document.getElementById("ball");
+        newImage.style.display = "none"
+
+        clearTimeout(timerId);
     }
 
     track.init(pModel);
@@ -170,8 +281,6 @@
         var currentParam = track.getCurrentParameters();
         var emotionResult = emotionClassifier.meanPredict(currentParam);
 
-        // console.log(emotionResult)
-
         if (emotionResult) {
             for (var param in emotionResult) {
                 var emotion = emotionResult[param].emotion;
@@ -180,7 +289,7 @@
                 if (value) {
                     score = value.toFixed(1) * 100;
                     switch (emotion) {
-                        case 'happy':
+                        case "happy":
                             if (80 < score) {
                                 happyLevel = 2;
                                 isHappy = true;
@@ -199,51 +308,30 @@
             }
         }
     }
-    // バラの画像描画処理
-    function makeRosesBloom(level) {
-        // for (i = 0; i < level; i++) {
-        if (isPortrait) {
-            roseImage.src = portraitImagePath[level];
-        } else {
-            roseImage.src = landscapeImagePath[level];
-        }
-
-        console.log(roseImage.src)
-        // console.log(canvas.width)
-        // console.log(canvas.height)
-
-        // context.drawImage(roseImage, 0, 0, canvas.width, canvas.height);
-
-        roseImage.addEventListener('load', function () {
-            context.drawImage(roseImage, 0, 0, 240, 180);
-        }, false);
-
-
-        // }
-    }
-
 
     // ==== (2) 録画の準備 ====
     // --- recording ---
     var recorder = null;
     var blobUrl = null;
     var chunks = [];
-    var playbackVideo = document.getElementById('playback_video');
+    var playbackVideo = document.getElementById("playback_video");
     // ==== (2) 録画の準備 ====
 
     // ==== (3) ダウンロードの準備 ====
-    var anchor = document.getElementById('downloadlink');
+    var anchor = document.getElementById("downloadlink");
     // ==== (3) ダウンロードの準備 ====
 
-    // ==== (1) カメラ映像の取得 ==== 
+    // ==== (1) カメラ映像の取得 ====
     // -- カメラ映像を取得 --
     function startVideo() {
         // Chrome 53から使える、新しい書き方。 promise を返す
-        navigator.mediaDevices.getUserMedia({
+        navigator.mediaDevices
+            .getUserMedia({
                 video: true,
-                audio: false
+                audio: false,
             })
-            .then(function (stream) { // success
+            .then(function (stream) {
+                // success
                 localStream = stream;
 
                 // videoタグで表示
@@ -251,13 +339,13 @@
 
                 // 動画のメタ情報のロードが完了したら実行
                 localVideo.onloadedmetadata = function () {
-                    // adjustProportions();
                     adjustVideo();
                     startTracking();
                 };
-
-            }).catch(function (error) { // error
-                console.error('mediaDevice.getUserMedia() error:', error);
+            })
+            .catch(function (error) {
+                // error
+                console.error("mediaDevice.getUserMedia() error:", error);
                 return;
             });
     }
@@ -283,45 +371,50 @@
     function startRecording() {
         // チェック
         if (!localStream) {
-            console.warn('stream not ready');
+            console.warn("stream not ready");
             return;
         }
         if (recorder) {
-            console.warn('already recording');
+            console.warn("already recording");
             return;
         }
 
         recorder = new MediaRecorder(localStream);
         /* -- option を使う場合のサンプル --
-        var options = {
-          audioBitsPerSecond : 64000,
-          videoBitsPerSecond : 512000,
-          mimeType : 'video/webm; codecs=vp9'
-        };
-        recorder = new MediaRecorder(localStream, options);    
-        -- option を使う場合のサンプル ---*/
+            var options = {
+              audioBitsPerSecond : 64000,
+              videoBitsPerSecond : 512000,
+              mimeType : 'video/webm; codecs=vp9'
+            };
+            recorder = new MediaRecorder(localStream, options);
+            -- option を使う場合のサンプル ---*/
 
         chunks = []; // 格納場所をクリア
 
         // 録画進行中に、インターバルに合わせて発生するイベント
         recorder.ondataavailable = function (evt) {
-            console.log("data available: evt.data.type=" + evt.data.type + " size=" + evt.data.size);
+            console.log(
+                "data available: evt.data.type=" +
+                evt.data.type +
+                " size=" +
+                evt.data.size
+            );
             chunks.push(evt.data);
         };
 
         // 録画停止時のイベント
         recorder.onstop = function (evt) {
-            console.log('recorder.onstop(), so playback');
+            console.log("recorder.onstop(), so playback");
             recorder = null;
             playRecorded();
         };
 
         // 録画スタート
         recorder.start(1000); // インターバルは1000ms
-        console.log('start recording');
+        console.log("start recording");
     }
 
-    // -- 録画停止 -- 
+    // -- 録画停止 --
     function stopRecording() {
         if (recorder) {
             recorder.stop();
@@ -338,7 +431,7 @@
 
         // Blob
         var videoBlob = new Blob(chunks, {
-            type: "video/webm"
+            type: "video/webm",
         });
 
         // 再生できるようにURLを生成
@@ -346,7 +439,7 @@
 
         // ==== (3) ダウンロード ====
         // ダウンロードの準備
-        anchor.download = 'recorded.webm';
+        anchor.download = "recorded.webm";
         anchor.href = blobUrl;
         // ==== (3) ダウンロード ====
 
@@ -369,18 +462,18 @@
     // ==== (2) 録画 ====
 
     // ==== 一人Wave, 一人Train(Ghost) ====
-    var container = document.getElementById('container');
+    var container = document.getElementById("container");
 
     function addWavePlayer() {
         if (!blobUrl) {
-            console.warn('not recorded yet');
+            console.warn("not recorded yet");
             return;
         }
 
-        var newVideo = document.createElement('video');
-        newVideo.style.width = '160px';
-        newVideo.style.height = '120px';
-        newVideo.style.border = '1px solid';
+        var newVideo = document.createElement("video");
+        newVideo.style.width = "160px";
+        newVideo.style.height = "120px";
+        newVideo.style.border = "1px solid";
         //newVideo.controls = "1";
         newVideo.volume = 0;
         newVideo.src = blobUrl;
@@ -395,14 +488,14 @@
 
     function addGhostPlayer() {
         if (!blobUrl) {
-            console.warn('not recorded yet');
+            console.warn("not recorded yet");
             return;
         }
 
-        var newVideo = document.createElement('video');
-        newVideo.style.width = '320px';
-        newVideo.style.height = '240px';
-        newVideo.style.border = '1px solid';
+        var newVideo = document.createElement("video");
+        newVideo.style.width = "320px";
+        newVideo.style.height = "240px";
+        newVideo.style.border = "1px solid";
         //newVideo.controls = "1";
         newVideo.volume = 0;
         newVideo.src = blobUrl;
@@ -428,38 +521,38 @@
 
     function setStartPoint() {
         let current = playbackVideo.currentTime;
-        console.log('setStartPoint() current=' + current);
+        console.log("setStartPoint() current=" + current);
         if (current) {
             startPoint = current;
-            document.getElementById('start_point').innerText = current;
+            document.getElementById("start_point").innerText = current;
         }
     }
 
     function setStopPoint() {
         let current = playbackVideo.currentTime;
-        console.log('setStopPoint() current=' + current);
+        console.log("setStopPoint() current=" + current);
         if (current) {
             stopPoint = current;
-            document.getElementById('stop_point').innerText = current;
+            document.getElementById("stop_point").innerText = current;
         }
     }
 
     function addOverlapPlayer() {
         if (!blobUrl) {
-            console.warn('not recorded yet');
+            console.warn("not recorded yet");
             return;
         }
 
-        var newVideo = document.createElement('video');
-        newVideo.style.width = '240px';
-        newVideo.style.height = '180px';
-        newVideo.style.border = '1px solid';
+        var newVideo = document.createElement("video");
+        newVideo.style.width = "240px";
+        newVideo.style.height = "180px";
+        newVideo.style.border = "1px solid";
         // newVideo.style.border = 'none'; //1px solid';
         newVideo.style.position = "absolute";
         // newVideo.style.left = (overlapLeft + 'px');
-        newVideo.style.left = '0px';
+        newVideo.style.left = "0px";
         // newVideo.style.top = '300px';
-        newVideo.style.top = '0px';
+        newVideo.style.top = "0px";
         newVideo.style.opacity = 0.6;
         overlapLeft += overlapPitch;
 
@@ -468,7 +561,7 @@
         newVideo.src = blobUrl;
         newVideo.loop = "1";
         newVideo.onended = function () {
-            console.log("onended!!!!!!!!!!!!!!!!!!!")
+            console.log("onended!!!!!!!!!!!!!!!!!!!");
             // newVideo.play(); // リピート再生
             container.removeChild(newVideo); // 取り除く
         };
@@ -489,22 +582,22 @@
         }
 
         /*--
-        if (startPoint) {
-          newVideo.src += ('#t=' + startPoint);
-          if (stopPoint) {
-            newVideo.src += (',' + stopPoint);
+            if (startPoint) {
+              newVideo.src += ('#t=' + startPoint);
+              if (stopPoint) {
+                newVideo.src += (',' + stopPoint);
 
-            newVideo.ontimeupdate = function() {
-              if (newVideo.currentTime >= stopPoint) {
-                newVideo.currentTime = startPoint;
-                newVideo.play(); // リピート再生
+                newVideo.ontimeupdate = function() {
+                  if (newVideo.currentTime >= stopPoint) {
+                    newVideo.currentTime = startPoint;
+                    newVideo.play(); // リピート再生
+                  }
+                };
               }
-            };
-          }
-        }
-        --*/
+            }
+            --*/
 
-        console.log('newVideo.src=' + newVideo.src);
+        console.log("newVideo.src=" + newVideo.src);
         container.appendChild(newVideo);
         newVideo.play();
     }
@@ -512,7 +605,7 @@
     function removePlaybackVideos() {
         while (container.firstChild) {
             container.firstChild.pause();
-            container.firstChild.src = '';
+            container.firstChild.src = "";
             container.removeChild(container.firstChild);
         }
 

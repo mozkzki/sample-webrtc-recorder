@@ -1,0 +1,23 @@
+<html>
+
+<head>
+    <title>Hello WebGL</title>
+    <meta charset="utf-8" />
+    <script>
+        window.addEventListener('load', init);
+
+        function init() {
+            var canvas = document.getElementById('canvas');
+            var gl = canvas.getContext('webgl', null);
+            var size = Math.min(window.innerWidth, window.innerHeight);
+            canvas.width = size;
+            canvas.height = size;
+        }
+    </script>
+</head>
+
+<body>
+    <canvas id="canvas"></canvas>
+</body>
+
+</html>

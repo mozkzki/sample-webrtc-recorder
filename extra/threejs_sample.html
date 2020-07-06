@@ -1,0 +1,85 @@
+<html>
+
+<head>
+    <title>Hello three.js.</title>
+    <meta charset="utf-8" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/99/three.min.js"></script>
+    <script>
+        window.addEventListener('load', init);
+
+        function init() {
+
+            // 表示領域を指定
+            const width = 600;
+            const height = 600;
+
+            // レンダラーを作成
+            const renderer = new THREE.WebGLRenderer({
+                canvas: document.querySelector('#field'),
+                alpha: true,
+                antialias: true,
+            });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(width, height);
+            // 背景に透明を指定
+            renderer.setClearColor(0x000000, 0);
+            // レンダラーの auto clear をfalseにする
+            renderer.autoClear = false;
+
+            // カメラを作成
+            const camera = new THREE.PerspectiveCamera(45, width / height);
+            camera.position.set(0, 0, +1000);
+
+            // シーンを作成
+            const scene = new THREE.Scene();
+
+            // boxを作成
+            const geometry = new THREE.BoxBufferGeometry(100, 100, 100);
+            // sphereを作成
+            // const geometry = new THREE.SphereBufferGeometry(200, 200, 200);
+
+            // マテリアルを作成
+            const material = new THREE.MeshNormalMaterial();
+
+            // メッシュを作成
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.position.z = -1000;
+
+            mesh.alive = true;
+            setTimeout(function () {
+                mesh.alive = false;
+                scene.remove(mesh);
+            }, 5000);
+
+            // シーンに追加
+            scene.add(mesh);
+
+            animate();
+
+            // フレーム時に実行されるイベント
+            function animate() {
+                requestAnimationFrame(animate);
+
+                renderer.clear();
+
+                // 回転速度
+                mesh.rotation.x += 0.02;
+                mesh.rotation.y += 0.01;
+                // mesh.position.x += 5;
+                mesh.position.z += 15;
+
+                // レンダリング
+                renderer.render(scene, camera);
+            }
+        }
+    </script>
+</head>
+
+<body>
+    <div style="position: relative;">
+        <canvas id="test" style="background-color: blue; position: absolute; width: 600; height: 600;"></canvas>
+        <canvas id="field" style="position: absolute;"></canvas>
+    </div>
+</body>
+
+</html>

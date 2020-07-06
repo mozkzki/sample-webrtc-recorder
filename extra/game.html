@@ -1,0 +1,469 @@
+<html>
+
+<head>
+    <title>remote battle !</title>
+    <meta charset="utf-8" />
+    <!-- ビューポートの考え方 -->
+    <!-- https://qiita.com/ryounagaoka/items/045b2808a5ed43f96607 -->
+    <meta name="viewport" content="width=640,initial-scale=1" />
+</head>
+
+<body>
+    <button onclick="clean_test()">clean</button>
+    <div>
+        <div id="local" style="display: inline-block;">
+            <div style="position: relative; width: 320px; height: 240px;">
+                <video id="local_video" autoplay
+                    style="position: absolute; width: 320px; height: 240px; border: 1px solid black;"></video>
+                <canvas id="local_field" style="position: absolute; width: 320px; height: 480px;"
+                    onclick="debug(event);"></canvas>
+            </div>
+            <div style="position: relative; width: 320px; height: 240px;">
+                <canvas id="local_face" style="position: absolute; width: 320px; height: 240px;"></canvas>
+            </div>
+        </div>
+
+        <div id="remote" style="display: inline-block;">
+            <div style="position: relative; width: 320px; height: 240px;">
+                <video id="remote_video" autoplay
+                    style="position: absolute; width: 320px; height: 240px; border: 1px solid black;"></video>
+                <canvas id="remote_field" style="position: absolute; width: 320px; height: 480px;"
+                    onclick="debug(event);"></canvas>
+            </div>
+            <div style="position: relative; width: 320px; height: 240px;">
+                <canvas id="remote_face" style="position: absolute; width: 320px; height: 240px;"></canvas>
+            </div>
+        </div>
+
+    </div>
+</body>
+
+<!-- clmtrackr/ライブラリ -->
+<script src="./js/lib/clmtrackr.js"></script>
+<script src="./js/lib/emotion_classifier.js"></script>
+<script src="./js/lib/emotionmodel.js"></script>
+<!-- clmtrackr/顔のモデル -->
+<script src="./js/lib/model_pca_20_svm.js"></script>
+<!-- three.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/99/three.min.js"></script>
+
+
+<script>
+    window.addEventListener("load", init);
+
+    //------------------------------
+    // 共通
+    //------------------------------
+    const g_width = 320;
+    const g_height = 240;
+
+    //------------------------------
+    // WebRTC関連
+    //------------------------------
+
+    var localVideo = document.getElementById("local_video");
+    var localStream = null;
+    var localCanvas = document.querySelector("#local_face");
+
+    // 動画のメタ情報のロードが完了したら実行
+    localVideo.onloadedmetadata = function () {
+        adjustLocalVideo();
+        startLocalVideoTracking();
+    };
+
+    var remoteVideo = document.getElementById("remote_video");
+    var remoteStream = null;
+    var remoteCanvas = document.querySelector("#remote_face");
+
+    // 動画のメタ情報のロードが完了したら実行
+    remoteVideo.onloadedmetadata = function () {
+        adjustRemoteVideo();
+        startRemoteVideoTracking();
+    };
+
+    // 初期化
+    function init() {
+        startVideo();
+        // startLocalVideo();
+        init3DField();
+    }
+
+    function startLocalVideo() {
+        navigator.mediaDevices
+            .getUserMedia({
+                video: true,
+                audio: false,
+            })
+            .then(function (stream) {
+                // success
+                localStream = stream;
+
+                // 動画のメタ情報のロードが完了したら実行
+                // localVideo.onloadedmetadata = function () {
+                //     adjustVideo();
+                //     startLocalVideoTracking();
+                // };
+
+                // videoタグで表示
+                localVideo.srcObject = localStream;
+            })
+            .catch(function (error) {
+                // error
+                console.error("mediaDevice.getUserMedia() error:", error);
+                return;
+            });
+    }
+
+    // 映像が画面幅いっぱいに表示されるように調整
+    function adjustLocalVideo() {
+        adjustVideo(localVideo, localCanvas);
+    }
+
+    function adjustRemoteVideo() {
+        adjustVideo(remoteVideo, remoteCanvas);
+    }
+
+    function adjustVideo(video, canvas) {
+        video.width = g_width;
+        video.height = g_height;
+        canvas.width = video.width;
+        canvas.height = video.height;
+    }
+
+    //------------------------------
+    // 顔認識関連
+    //------------------------------
+
+    // トラッカーオブジェクト
+    var track = new clm.tracker({
+        useWebGL: true,
+    });
+
+    // 初期化
+    track.init(pModel);
+
+    // トラッキング開始
+    function startLocalVideoTracking(video) {
+        startTracking(localVideo);
+    }
+
+    function startRemoteVideoTracking(video) {
+        startTracking(remoteVideo);
+    }
+
+    function startTracking(video) {
+        track.start(video);
+        drawlocalVideoLoop();
+    }
+
+
+    // 描画ループ
+    function drawlocalVideoLoop() {
+        const video = localVideo;
+        const canvas = localCanvas;
+
+        draw(video, canvas);
+
+        requestAnimationFrame(drawlocalVideoLoop);
+    }
+
+    function draw(video, canvas) {
+        const context = canvas.getContext("2d");
+
+        // 描画をクリア
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        // videoをcanvasにトレース
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        positions = track.getCurrentPosition();
+        if (positions) {
+            // 顔のパーツの現在位置が存在したら描画
+            track.draw(canvas);
+
+            if (!isShooting) {
+                if (positions[60] && positions[57]) {
+                    var mouse_upper = positions[60];
+                    var mouse_under = positions[57];
+                    if (mouse_under[1] - mouse_upper[1] > 35) {
+                        console.log("shooooooooooooooooooooooooooot!");
+                        shoot(mouse_upper[0], mouse_under[1] - 35 / 2);
+                    }
+                }
+            }
+        }
+    }
+
+    //------------------------------
+    // 3D描画関連
+    //------------------------------
+
+    function debug(e) {
+        var rect = e.target.getBoundingClientRect();
+
+        // スクリーン上のマウス位置を取得する
+        var mouseX = e.clientX - rect.left;
+        var mouseY = e.clientY - rect.top;
+
+        shoot(mouseX, mouseY);
+        // drawDebugLine(mouseX, mouseY);
+    }
+
+    function drawDebugLine(x, y) {
+        var geometry = new THREE.Geometry();
+
+        var pos = getStartPosition(x, y);
+        geometry.vertices.push(new THREE.Vector3(pos.x, pos.y, 0));
+        geometry.vertices.push(new THREE.Vector3(0, 0, 999));
+
+        var material = new THREE.LineBasicMaterial({
+            color: 0xff00ff,
+            // transparent: true,
+            opacity: 0.5,
+        });
+        var lines = new THREE.LineSegments(geometry, material);
+        scene.add(lines);
+
+        // lines.alive = true;
+        // setTimeout(function () {
+        //     lines.alive = false;
+        //     console.log("remove!!");
+        //     scene.remove(lines);
+        //     lines.geometry.dispose();
+        //     lines.material.dispose();
+        // }, 5000);
+
+        renderer.render(scene, camera);
+    }
+
+    function clean_test() {
+        shoots.forEach((shoot_mesh) => {
+            // if (shoot_mesh.alive == true) {
+            //     console.log("get: " + shoot_mesh);
+            shoot_mesh.alive = false;
+            console.log("reeeeeeeeeeeeeeemove!");
+            scene.remove(shoot_mesh);
+            shoot_mesh.geometry.dispose();
+            shoot_mesh.material.dispose();
+            shoot_mesh = undefined;
+
+            // }
+        });
+        shoots = [];
+    }
+
+    function shoot(x, y) {
+        isShooting = true;
+
+        const geometry = new THREE.SphereGeometry(5, 32, 32);
+        // const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        const material = new THREE.MeshPhongMaterial({
+            color: 0x6699ff,
+        });
+        //   const material = new THREE.MeshToonMaterial({ color: 0x6699ff });
+
+        // boxを作成
+        //   const geometry = new THREE.BoxBufferGeometry(20, 20, 20);
+
+        // マテリアルを作成
+        // const material = new THREE.MeshNormalMaterial();
+        //   const material = new THREE.MeshStandardMaterial({
+        //     color: 0xff0000,
+        //   });
+
+        // 検知した口の座標はスクリーン座標(手前の画面に張り付いてる座標)なので
+        // グローバル座標で発射された場所(奥の画面)を求める
+        const start = getStartPosition(x, y);
+
+        // メッシュを作成
+        const mesh = new THREE.Mesh(geometry, material);
+        // 始点 (zは衝突検知用の壁と同じにする必要がある)
+        const v1 = new THREE.Vector3(start.x, start.y, 0);
+        // 終点
+        const v2 = new THREE.Vector3(0, 0, 1000);
+
+        mesh.position.x = v1.x;
+        mesh.position.y = v1.y;
+        mesh.position.z = v1.z;
+
+        mesh.alive = true;
+        setTimeout(function () {
+            mesh.alive = false;
+            console.log("reeeeeeeeeeeeeeemove!");
+            scene.remove(mesh);
+            mesh.geometry.dispose();
+            mesh.material.dispose();
+        }, 3000);
+
+        setTimeout(function () {
+            isShooting = false;
+        }, 500);
+
+        // シーンに追加
+        scene.add(mesh);
+        shoots.push(mesh);
+        animate();
+
+        // フレーム時に実行されるイベント
+        function animate() {
+            renderer.clear();
+
+            // 回転速度
+            mesh.rotation.x += 0.05;
+            mesh.rotation.y += 0.03;
+
+            mesh.position.z += 15;
+            const v = getNextPosition(v1, v2, mesh.position.z);
+            mesh.position.x = v.x;
+            mesh.position.y = v.y;
+
+            // レンダリング
+            renderer.render(scene, camera);
+            requestAnimationFrame(animate);
+        }
+    }
+
+    function getStartPosition(target_x, target_y) {
+        // 取得したスクリーン座標を-1〜1に正規化する（WebGLは-1〜1で座標が表現される）
+        var mouseX = (target_x / g_width) * 2 - 1;
+        var mouseY = -(target_y / g_height) * 2 + 1;
+
+        // マウスの位置ベクトル
+        var pos = new THREE.Vector3(mouseX, mouseY, 1);
+
+        // pos はスクリーン座標系なので、オブジェクトの座標系に変換
+        // オブジェクト座標系は今表示しているカメラからの視点なので、第二引数にカメラオブジェクトを渡す
+        pos.unproject(camera);
+        console.log("origin(" + target_x + "," + target_y + ")");
+        console.log("screen(" + mouseX + "," + mouseY + "," + 1 + ")");
+        console.log("world (" + pos.x + "," + pos.y + "," + pos.z + ")");
+
+        // 始点、向きベクトルを渡してレイを作成
+        var ray = new THREE.Raycaster(
+            camera.position,
+            pos.sub(camera.position).normalize()
+        );
+
+        // 交差判定
+        // 引数は取得対象となるMeshを渡す
+        var objs = ray.intersectObject(wall);
+
+        var pos_new = new THREE.Vector3(0, 0, 0);
+        if (objs.length > 0) {
+            // 交差していたらobjsが1以上になる
+            pos_new.x = objs[0].point.x;
+            pos_new.y = objs[0].point.y;
+            pos_new.z = pos.z;
+        }
+        console.log(
+            "start (" + pos_new.x + "," + pos_new.y + "," + pos_new.z + ")"
+        );
+
+        return pos_new;
+    }
+
+    function getNextPosition(v1, v2, z) {
+        // 2点 (x1, y1, z1) - (z2, y2, z2) を通る直線の点 (x, y, z) を求める式
+        // (x-x1)/(x2-x1) = (y-y1)/(y2-y1) = (z-z1)/(z2-z1)
+        var x = ((z - v1.z) / (v2.z - v1.z)) * (v2.x - v1.x) + v1.x;
+        var y = ((z - v1.z) / (v2.z - v1.z)) * (v2.y - v1.y) + v1.y;
+        return new THREE.Vector3(x, y, z);
+    }
+
+    let renderer;
+    let camera;
+    let scene;
+    let wall;
+    let shoots = [];
+
+    var isShooting = false;
+
+    function init3DField() {
+        // 表示領域を指定
+        const width = g_width;
+        const height = g_height;
+
+        // レンダラーを作成
+        renderer = new THREE.WebGLRenderer({
+            canvas: document.querySelector("#local_field"),
+            alpha: true,
+            // 遅くなる
+            // antialias: true,
+        });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(width, height);
+        // 背景に透明を指定
+        renderer.setClearColor(0x000000, 0);
+        // レンダラーの auto clear をfalseにする
+        renderer.autoClear = false;
+
+        // カメラを作成
+        //   camera = new THREE.PerspectiveCamera(45, width / height);
+        camera = new THREE.PerspectiveCamera(45, width / height, 1, 10000);
+        camera.position.set(0, 0, +1000);
+
+        // シーンを作成
+        scene = new THREE.Scene();
+
+        // 平行光源
+        const directionalLight = new THREE.DirectionalLight(0xffffff);
+        directionalLight.position.set(500, 10, 500);
+        // シーンに追加
+        scene.add(directionalLight);
+
+        // フィールド作成
+        createField();
+        // 座標検知用の透明な壁を作成
+        createWall();
+    }
+
+    function createField() {
+        //形状オブジェクトの宣言と生成
+        var geometry = new THREE.Geometry();
+        //頂点座標データの追加
+        for (let i = 0; i < 50; i++) {
+            geometry.vertices.push(new THREE.Vector3(-500 + i * 20, 0, -500));
+            geometry.vertices.push(new THREE.Vector3(-500 + i * 20, -100, 500));
+        }
+        for (let i = 0; i < 50; i++) {
+            geometry.vertices.push(
+                new THREE.Vector3(-500, 0 - i * 2, -500 + i * 20)
+            );
+            geometry.vertices.push(
+                new THREE.Vector3(500, 0 - i * 2, -500 + i * 20)
+            );
+        }
+        //材質オブジェクトの宣言と生成
+        var material = new THREE.LineBasicMaterial({
+            color: 0x000000,
+            transparent: true,
+            opacity: 0.5,
+        });
+        //線オブジェクトの生成
+        lines = new THREE.LineSegments(geometry, material);
+        //線オブジェクトのシーンへの追加
+        scene.add(lines);
+        //線オブジェクトの位置座標を設定
+        lines.position.set(0, 0, 0);
+        // レンダリング
+        renderer.render(scene, camera);
+    }
+
+    function createWall() {
+        const geometry = new THREE.BoxBufferGeometry(65535, 65535, 1);
+        const material = new THREE.MeshStandardMaterial({
+            color: 0x000000,
+            // transparent: true,
+            opacity: 0.0,
+        });
+
+        wall = new THREE.Mesh(geometry, material);
+        scene.add(wall);
+        wall.position.set(0, 0, 0);
+
+        // レンダリング
+        renderer.render(scene, camera);
+    }
+</script>
+<script type='text/javascript' src='./webrtc.js'></script>
+
+</html>

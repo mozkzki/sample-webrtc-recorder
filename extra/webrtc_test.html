@@ -1,0 +1,57 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>WebRTC Test</title>
+</head>
+
+<body>
+    <!-- <button onclick="startVideo()">Start Camera</button> -->
+    <button onclick="stopVideo()">Stop Camera</button>
+    <br />
+    <video id="local_video" autoplay style="width: 600px; height: 600px; border: 1px solid black;"></video>
+    <br />
+</body>
+<script type="text/javascript">
+    var localVideo = document.getElementById('local_video');
+    var localStream = null;
+
+    window.addEventListener('load', init);
+
+    function init() {
+        startVideo()
+    }
+
+    function startVideo() {
+        navigator.mediaDevices.getUserMedia({
+                video: true,
+                audio: false
+            })
+            .then(function (stream) { // success
+                localStream = stream;
+
+                // videoタグで表示
+                localVideo.srcObject = localStream;
+            }).catch(function (error) { // error
+                console.error('mediaDevice.getUserMedia() error:', error);
+                return;
+            });
+    }
+
+    function stopVideo() {
+        if (localStream) {
+            // track 毎に停止
+            for (track of localStream.getTracks()) {
+                track.stop();
+            }
+            localStream = null;
+        }
+
+        // videoタグを停止
+        localVideo.pause();
+        localVideo.srcObject = null;
+    }
+</script>
+
+</html>
