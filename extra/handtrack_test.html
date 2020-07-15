@@ -175,15 +175,50 @@
       });
     }
 
+    let removeCounter = 0;
+
     function runDetection() {
       model.detect(localVideo).then((predictions) => {
         requestAnimationFrame(runDetection);
         // console.log("Predictions: ", predictions);
 
+        // console.log("-------" + predictions[0] + "," + predictions[1]);
+
+        if (removeCounter > 5) {
+          removeBall();
+        }
+
+        if (predictions[0] == undefined && predictions[1] == undefined) {
+          removeCounter++;
+        }
+
         if (predictions[0]) {
           var bbox = predictions[0].bbox;
+          gBeforeX = gX;
+          gBeforeY = gY;
           gX = bbox[0] + bbox[2] / 2;
           gY = bbox[1] + bbox[3] / 2;
+
+          // 気弾は激しい移動をすると消えてしまう
+          var idouX = Math.abs(gBeforeX - gX);
+          var idouY = Math.abs(gBeforeY - gY);
+          if (idouX > 120 || idouY > 120) {
+            removeCounter++;
+          }
+
+          var width = bbox[2];
+          var height = bbox[3];
+          //   console.log("(width,height)=(" + width + "," + height + ")");
+          if (width > 250 && height > 270) {
+            if (g_mag < 15) {
+              g_mag += 0.1;
+            }
+          }
+          if (width < 200 || height < 210) {
+            if (g_mag > 1) {
+              g_mag -= 0.1;
+            }
+          }
 
           //   console.log("(x,y)=(" + gX + "," + gY + ")");
 
@@ -276,6 +311,8 @@
     let gIsExistBall = false;
     let gX = 0;
     let gY = 0;
+    let gBeforeX = 0;
+    let gBeforeY = 0;
     let gOffsetX = 0;
     let gOffsetY = 0;
     let g_mag = 1;
@@ -323,16 +360,19 @@
 
     function removeBall() {
       console.log("remove!!!!!!!!!!!!!!!!!");
-      gBall.alive = false;
-      scene.remove(gBall);
-      gBall.geometry.dispose();
-      gBall.material.dispose();
+      if (gBall) {
+        gBall.alive = false;
+        scene.remove(gBall);
+        gBall.geometry.dispose();
+        gBall.material.dispose();
+        gBall = null;
+      }
       g_mag = 1;
       g_dist = 0;
       gOffsetX = 0;
       gOffsetY = 0;
-      gBall = null;
       gIsExistBall = false;
+      removeCounter = 0;
     }
 
     function drawBall() {
@@ -381,13 +421,14 @@
         mesh.position.y = v1.y;
         mesh.position.z = v1.z;
 
-        if (g_mag > 2) {
-          if (g_dist > 3) {
-            g_dist -= 0.08;
-          } else {
-            g_dist += 0.08;
-          }
-        }
+        // if (g_mag > 2) {
+        //   if (g_dist > 3) {
+        //     g_dist -= 0.08;
+        //   } else {
+        //     g_dist += 0.08;
+        //   }
+        // }
+
         mesh.scale.set(g_mag + g_dist, g_mag + g_dist, g_mag + g_dist);
         // console.log("mag: " + g_mag);
 
@@ -400,10 +441,10 @@
         // mesh.position.x = v.x;
         // mesh.position.y = v.y;
 
-        // FPSを30に
-        if (frame % 2) {
-          return;
-        }
+        // // FPSを30に
+        // if (frame % 2) {
+        //   return;
+        // }
 
         // レンダリング
         renderer.render(scene, camera);
@@ -509,7 +550,7 @@
       //-------------------------------------
       // 顔認識結果を表示する場合コメントアウト
       //-------------------------------------
-      drawFace(localVideo, face_canvas);
+      //   drawFace(localVideo, face_canvas);
     }
 
     function detectFace() {
@@ -521,7 +562,7 @@
           var mouse_distance = mouse_under[1] - mouse_upper[1];
           if (mouse_distance > 15) {
             if (g_mag < 15) {
-              g_mag += 0.1;
+              //   g_mag += 0.1;
             }
             console.log("shooooooooooooooooooooooooooot!");
           }
