@@ -6,33 +6,30 @@
     <!-- ビューポートの考え方 -->
     <!-- https://qiita.com/ryounagaoka/items/045b2808a5ed43f96607 -->
     <meta name="viewport" content="width=640,initial-scale=1" />
+    <link rel="stylesheet" href="css/game.css" type="text/css" />
 </head>
 
 <body>
-    <button onclick="clean_test()">clean</button>
+    <button type="button" onclick="connect();">Connect</button>
+    <button type="button" onclick="sendData();">Send Data Channel</button>
+    <button class="buruburu-hover" type="button" onclick="test();">Test</button>
     <div>
-        <div id="local" style="display: inline-block;">
+        <div style="display: inline-block;">
             <div style="position: relative; width: 320px; height: 240px;">
-                <video id="local_video" autoplay
-                    style="position: absolute; width: 320px; height: 240px; border: 1px solid black;"></video>
-                <canvas id="local_field" style="position: absolute; width: 320px; height: 480px;"
-                    onclick="debug(event);"></canvas>
-            </div>
-            <div style="position: relative; width: 320px; height: 240px;">
-                <canvas id="local_face" style="position: absolute; width: 320px; height: 240px;"></canvas>
-            </div>
-        </div>
-
-        <div id="remote" style="display: inline-block;">
-            <div style="position: relative; width: 320px; height: 240px;">
-                <video id="remote_video" autoplay
+                <video id="remote_video" class="none" autoplay
                     style="position: absolute; width: 320px; height: 240px; border: 1px solid black;"></video>
                 <canvas id="remote_field" style="position: absolute; width: 320px; height: 480px;"
                     onclick="debug(event);"></canvas>
             </div>
-            <div style="position: relative; width: 320px; height: 240px;">
-                <canvas id="remote_face" style="position: absolute; width: 320px; height: 240px;"></canvas>
+            <div style=" position: relative; width: 320px; height: 240px;">
+                <canvas id="local_face" style="position: absolute; width: 320px; height: 240px;"></canvas>
             </div>
+        </div>
+
+        <!-- display: none だと顔認識が動かない -->
+        <div style="visibility: hidden; display: inline-block; width: 320px; height: 240px;">
+            <video id="local_video"
+                style="position: absolute; width: 320px; height: 240px; border: 1px solid black;"></video>
         </div>
 
     </div>
@@ -47,6 +44,7 @@
 <!-- three.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/99/three.min.js"></script>
 
+<script type='text/javascript' src='./webrtc.js'></script>
 
 <script>
     window.addEventListener("load", init);
@@ -67,56 +65,75 @@
 
     // 動画のメタ情報のロードが完了したら実行
     localVideo.onloadedmetadata = function () {
+        console.log("+++++++++++ localVideo.onloadedmetadata !")
         adjustLocalVideo();
         startLocalVideoTracking();
     };
 
     var remoteVideo = document.getElementById("remote_video");
     var remoteStream = null;
-    var remoteCanvas = document.querySelector("#remote_face");
+    // var remoteCanvas = document.querySelector("#remote_face");
 
     // 動画のメタ情報のロードが完了したら実行
     remoteVideo.onloadedmetadata = function () {
-        adjustRemoteVideo();
-        startRemoteVideoTracking();
+        // adjustRemoteVideo();
+        // startRemoteVideoTracking();
     };
+
+    function test() {}
+
+    function damage() {
+        remoteVideo.className = "buruburu";
+
+        // すぐOFFにしたいが、そのままやると動かない
+        // このやり方だと、時間が適当なので・・
+        // TODO: どうやるのがいい？
+        setTimeout(function () {
+            remoteVideo.className = "none";
+        }, 1000);
+    }
 
     // 初期化
     function init() {
-        startVideo();
-        // startLocalVideo();
+        console.log(">>>>>>>>>>>>>>>> init !!!!!!!!!!!");
+
+        startLocalVideo();
         init3DField();
     }
 
-    function startLocalVideo() {
-        navigator.mediaDevices
-            .getUserMedia({
-                video: true,
-                audio: false,
-            })
-            .then(function (stream) {
-                // success
-                localStream = stream;
+    // function startLocalVideo() {
+    //     navigator.mediaDevices
+    //         .getUserMedia({
+    //             video: true,
+    //             audio: false,
+    //         })
+    //         .then(function (stream) {
+    //             // success
+    //             localStream = stream;
 
-                // 動画のメタ情報のロードが完了したら実行
-                // localVideo.onloadedmetadata = function () {
-                //     adjustVideo();
-                //     startLocalVideoTracking();
-                // };
+    //             // 動画のメタ情報のロードが完了したら実行
+    //             localVideo.onloadedmetadata = function () {
+    //                 adjustVideo();
+    //                 startLocalVideoTracking();
+    //             };
 
-                // videoタグで表示
-                localVideo.srcObject = localStream;
-            })
-            .catch(function (error) {
-                // error
-                console.error("mediaDevice.getUserMedia() error:", error);
-                return;
-            });
-    }
+    //             // videoタグで表示
+    //             localVideo.srcObject = localStream;
+    //         })
+    //         .catch(function (error) {
+    //             // error
+    //             console.error("mediaDevice.getUserMedia() error:", error);
+    //             return;
+    //         });
+    // }
 
     // 映像が画面幅いっぱいに表示されるように調整
     function adjustLocalVideo() {
-        adjustVideo(localVideo, localCanvas);
+        // adjustVideo(localVideo, localCanvas);
+        localVideo.width = 320;
+        localVideo.height = 240;
+        localCanvas.width = localVideo.width;
+        localCanvas.height = localVideo.height;
     }
 
     function adjustRemoteVideo() {
@@ -143,28 +160,25 @@
     track.init(pModel);
 
     // トラッキング開始
-    function startLocalVideoTracking(video) {
-        startTracking(localVideo);
+    function startLocalVideoTracking() {
+        track.start(localVideo);
+        drawLocalVideoLoop();
     }
 
-    function startRemoteVideoTracking(video) {
-        startTracking(remoteVideo);
+    function startRemoteVideoTracking() {
+        track.start(remoteVideo);
+        drawRemoteVideoLoop();
     }
-
-    function startTracking(video) {
-        track.start(video);
-        drawlocalVideoLoop();
-    }
-
 
     // 描画ループ
-    function drawlocalVideoLoop() {
-        const video = localVideo;
-        const canvas = localCanvas;
+    function drawLocalVideoLoop() {
+        draw(localVideo, localCanvas);
+        requestAnimationFrame(drawLocalVideoLoop);
+    }
 
-        draw(video, canvas);
-
-        requestAnimationFrame(drawlocalVideoLoop);
+    function drawRemoteVideoLoop() {
+        draw(remoteVideo, remoteCanvas);
+        requestAnimationFrame(drawRemoteVideoLoop);
     }
 
     function draw(video, canvas) {
@@ -173,7 +187,7 @@
         // 描画をクリア
         context.clearRect(0, 0, canvas.width, canvas.height);
         // videoをcanvasにトレース
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        // context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
         positions = track.getCurrentPosition();
         if (positions) {
@@ -184,9 +198,13 @@
                 if (positions[60] && positions[57]) {
                     var mouse_upper = positions[60];
                     var mouse_under = positions[57];
-                    if (mouse_under[1] - mouse_upper[1] > 35) {
+                    var mouse_distance = mouse_under[1] - mouse_upper[1];
+                    // console.log("mouse: " + mouse_distance);
+                    if (mouse_distance > 15) {
                         console.log("shooooooooooooooooooooooooooot!");
-                        shoot(mouse_upper[0], mouse_under[1] - 35 / 2);
+                        // shoot(mouse_upper[0], mouse_under[1] - 35 / 2);
+
+                        sendPoint(mouse_upper[0], mouse_under[1] - 35 / 2)
                     }
                 }
             }
@@ -204,7 +222,10 @@
         var mouseX = e.clientX - rect.left;
         var mouseY = e.clientY - rect.top;
 
-        shoot(mouseX, mouseY);
+        sendPoint(mouseX, mouseY);
+
+        // shoot(mouseX, mouseY);
+
         // drawDebugLine(mouseX, mouseY);
     }
 
@@ -235,30 +256,17 @@
         renderer.render(scene, camera);
     }
 
-    function clean_test() {
-        shoots.forEach((shoot_mesh) => {
-            // if (shoot_mesh.alive == true) {
-            //     console.log("get: " + shoot_mesh);
-            shoot_mesh.alive = false;
-            console.log("reeeeeeeeeeeeeeemove!");
-            scene.remove(shoot_mesh);
-            shoot_mesh.geometry.dispose();
-            shoot_mesh.material.dispose();
-            shoot_mesh = undefined;
-
-            // }
-        });
-        shoots = [];
-    }
-
     function shoot(x, y) {
         isShooting = true;
 
         const geometry = new THREE.SphereGeometry(5, 32, 32);
-        // const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        // const material = new THREE.MeshBasicMaterial({
+        //     color: 0xff0000
+        // });
         const material = new THREE.MeshPhongMaterial({
             color: 0x6699ff,
         });
+
         //   const material = new THREE.MeshToonMaterial({ color: 0x6699ff });
 
         // boxを作成
@@ -287,11 +295,16 @@
 
         mesh.alive = true;
         setTimeout(function () {
+            // 削除処理
+            console.log("remove!!!!!!!!!!!!!!!!!");
             mesh.alive = false;
-            console.log("reeeeeeeeeeeeeeemove!");
             scene.remove(mesh);
             mesh.geometry.dispose();
             mesh.material.dispose();
+
+            // ダメージで画面揺らす
+            damage();
+
         }, 3000);
 
         setTimeout(function () {
@@ -300,7 +313,6 @@
 
         // シーンに追加
         scene.add(mesh);
-        shoots.push(mesh);
         animate();
 
         // フレーム時に実行されるイベント
@@ -373,7 +385,6 @@
     let camera;
     let scene;
     let wall;
-    let shoots = [];
 
     var isShooting = false;
 
@@ -384,12 +395,13 @@
 
         // レンダラーを作成
         renderer = new THREE.WebGLRenderer({
-            canvas: document.querySelector("#local_field"),
+            canvas: document.querySelector("#remote_field"),
             alpha: true,
             // 遅くなる
             // antialias: true,
         });
-        renderer.setPixelRatio(window.devicePixelRatio);
+        // renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setPixelRatio(1);
         renderer.setSize(width, height);
         // 背景に透明を指定
         renderer.setClearColor(0x000000, 0);
@@ -397,8 +409,8 @@
         renderer.autoClear = false;
 
         // カメラを作成
-        //   camera = new THREE.PerspectiveCamera(45, width / height);
-        camera = new THREE.PerspectiveCamera(45, width / height, 1, 10000);
+        camera = new THREE.PerspectiveCamera(45, width / height);
+        // camera = new THREE.PerspectiveCamera(45, width / height, 1, 10000);
         camera.position.set(0, 0, +1000);
 
         // シーンを作成
@@ -464,6 +476,5 @@
         renderer.render(scene, camera);
     }
 </script>
-<script type='text/javascript' src='./webrtc.js'></script>
 
 </html>

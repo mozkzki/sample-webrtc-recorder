@@ -1,0 +1,51 @@
+.buruburu {
+    display: inline-block;
+    /* animation: hurueru .1s infinite; */
+    animation: hurueru .1s 5;
+}
+
+.buruburu-hover:hover {
+    display: inline-block;
+    animation: hurueru .1s 5;
+}
+
+@keyframes hurueru {
+    0% {
+        transform: translate(0px, 0px) rotateZ(0deg)
+    }
+
+    25% {
+        transform: translate(2px, 2px) rotateZ(1deg)
+    }
+
+    50% {
+        transform: translate(0px, 2px) rotateZ(0deg)
+    }
+
+    75% {
+        transform: translate(2px, 0px) rotateZ(-1deg)
+    }
+
+    100% {
+        transform: translate(0px, 0px) rotateZ(0deg)
+    }
+}
+
+.ball {
+    position: absolute;
+    width: 10%;
+    height: auto;
+    top: 0px;
+    left: 0px;
+    /* background: #000; */
+    /* transition: all 1000ms 0s ease-in;
+    transform: scale(0.0l, 0.01); */
+    /* transform: all .1s; */
+}
+
+.active {
+    /* transform: translateX(300px);
+    background: #ff0000; */
+    transform: scale(2.5, 2.5);
+    /* transition: transform .2s ease .1s; */
+}

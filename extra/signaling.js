@@ -19,24 +19,26 @@ const fs = require("fs");
 const httpServ = require("https");
 const websocketServer = require("ws").Server;
 
-const port = 8081;
+const port_num = 8081;
 
 var processRequest = function (req, res) {
   console.log("Request received.");
 };
 
-var app = httpServ
-  .createServer(
-    {
-      key: fs.readFileSync("/etc/cert/server.key").toString(),
-      cert: fs.readFileSync("/etc/cert/server.crt").toString(),
-    },
-    processRequest
-  )
-  .listen(port);
+// var app = httpServ
+//   .createServer(
+//     {
+//       key: fs.readFileSync("/etc/cert/server.key").toString(),
+//       cert: fs.readFileSync("/etc/cert/server.crt").toString(),
+//     },
+//     processRequest
+//   )
+//   .listen(port_num);
 
 // [wss]
-const wsServer = new websocketServer({ server: app });
+// const wsServer = new websocketServer({ server: app });
+// [ws]
+const wsServer = new websocketServer({ port: port_num });
 
 wsServer.on("connection", function (ws) {
   console.log("-- websocket connected --");
@@ -56,4 +58,4 @@ function isSame(ws1, ws2) {
   return ws1 === ws2;
 }
 
-console.log("websocket server start. port=" + port);
+console.log("websocket server start. port=" + port_num);

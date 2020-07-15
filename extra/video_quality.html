@@ -1,0 +1,73 @@
+<html>
+
+<head>
+    <title>handtrack test</title>
+    <meta charset="utf-8" />
+    <!-- ビューポートの考え方 -->
+    <!-- https://qiita.com/ryounagaoka/items/045b2808a5ed43f96607 -->
+    <!-- <meta name="viewport" content="width=640,initial-scale=1" /> -->
+</head>
+
+<body>
+    <canvas id="testcanvas" width="640px" height="480px" style="width: 640px; height: 480px;"></canvas>
+    <video id="myvideo" width="640px" height="480px"></video>
+</body>
+
+<script>
+    window.addEventListener("load", init);
+
+    let localStream = null;
+    const localVideo = document.getElementById("myvideo");
+    const test_canvas = document.getElementById("testcanvas");
+
+    function init() {
+        startVideo();
+    }
+
+    // getUserMediaでカメラ、マイクにアクセス
+    async function startVideo() {
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({
+                video: true,
+                audio: false
+            });
+            playVideo(localVideo, localStream);
+        } catch (err) {
+            console.error('mediaDevice.getUserMedia() error:', err);
+        }
+    }
+
+    // Videoの再生を開始する
+    async function playVideo(element, stream) {
+        element.srcObject = stream;
+        try {
+            await element.play();
+        } catch (erro) {
+            console.log('error auto play:' + error);
+        }
+    }
+
+    // 動画のメタ情報のロードが完了したら実行
+    localVideo.onloadedmetadata = function () {
+        drawLoop();
+    };
+
+    function drawLoop() {
+        const context = test_canvas.getContext("2d");
+
+        // 描画をクリア
+        context.clearRect(0, 0, test_canvas.width, test_canvas.height);
+        // videoをcanvasにトレース
+        context.drawImage(
+            localVideo,
+            0,
+            0,
+            test_canvas.width,
+            test_canvas.height
+        );
+
+        requestAnimationFrame(drawLoop);
+    }
+</script>
+
+</html>

@@ -1,15 +1,16 @@
 // const localVideo = document.getElementById("local_video");
 // const remoteVideo = document.getElementById("remote_video");
-const textForSendSdp = document.getElementById("text_for_send_sdp");
-const textToReceiveSdp = document.getElementById("text_for_receive_sdp");
+// const textForSendSdp = document.getElementById("text_for_send_sdp");
+// const textToReceiveSdp = document.getElementById("text_for_receive_sdp");
 // let localStream = null;
 let peerConnection = null;
+let datachannel = null;
 let negotiationneededCounter = 0;
 let isOffer = false;
 
 // シグナリングサーバへ接続する
 // const wsUrl = "ws://localhost:8081/";
-const wsUrl = "wss://test.com:8081/";
+const wsUrl = "ws://test.com:8081/";
 const ws = new WebSocket(wsUrl);
 ws.onopen = (evt) => {
   console.log("ws open()");
@@ -23,13 +24,13 @@ ws.onmessage = (evt) => {
   switch (message.type) {
     case "offer": {
       console.log("Received offer ...");
-      textToReceiveSdp.value = message.sdp;
+      //   textToReceiveSdp.value = message.sdp;
       setOffer(message);
       break;
     }
     case "answer": {
       console.log("Received answer ...");
-      textToReceiveSdp.value = message.sdp;
+      //   textToReceiveSdp.value = message.sdp;
       setAnswer(message);
       break;
     }
@@ -71,13 +72,13 @@ function sendIceCandidate(candidate) {
 }
 
 // getUserMediaでカメラ、マイクにアクセス
-async function startVideo() {
+async function startLocalVideo() {
   try {
     localStream = await navigator.mediaDevices.getUserMedia({
       video: true,
       audio: false,
     });
-    playVideo(localVideo, localStream);
+    // playVideo(localVideo, localStream);
   } catch (err) {
     console.error("mediaDevice.getUserMedia() error:", err);
   }
@@ -87,6 +88,7 @@ async function startVideo() {
 async function playVideo(element, stream) {
   element.srcObject = stream;
   try {
+    console.log("play!");
     await element.play();
   } catch (erro) {
     console.log("error auto play:" + error);
@@ -99,6 +101,26 @@ function prepareNewConnection(isOffer) {
     iceServers: [{ urls: "stun:stun.webrtc.ecl.ntt.com:3478" }],
   };
   const peer = new RTCPeerConnection(pc_config);
+
+  prepareDataChannel(peer);
+
+  // データチャネル用
+  // https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/createDataChannel
+  peer.ondatachannel = function (event) {
+    var channel = event.channel;
+    channel.onopen = function (event) {
+      console.log("onopen (receive) !!!!!!!!");
+      //   channel.send("Hi back!");
+    };
+    channel.onmessage = function (event) {
+      console.log("+++++++++++++++++++: " + event.data);
+      var dataObj = JSON.parse(event.data);
+      var x = dataObj.point.x;
+      var y = dataObj.point.y;
+      console.log("onmessage (receive) / shoot(" + x + ", " + y + ")");
+      shoot(x, y);
+    };
+  };
 
   // リモートのMediStreamTrackを受信した時
   peer.ontrack = (evt) => {
@@ -168,7 +190,7 @@ function prepareNewConnection(isOffer) {
 // 手動シグナリングのための処理を追加する
 function sendSdp(sessionDescription) {
   console.log("---sending sdp ---");
-  textForSendSdp.value = sessionDescription.sdp;
+  //   textForSendSdp.value = sessionDescription.sdp;
   /*---
      textForSendSdp.focus();
      textForSendSdp.select();
@@ -208,7 +230,8 @@ async function makeAnswer() {
 
 // Receive remote SDPボタンが押されたらOffer側とAnswer側で処理を分岐
 function onSdpText() {
-  const text = textToReceiveSdp.value;
+  //   const text = textToReceiveSdp.value;
+  const text = "";
   if (peerConnection) {
     console.log("Received answer text...");
     const answer = new RTCSessionDescription({
@@ -224,7 +247,7 @@ function onSdpText() {
     });
     setOffer(offer);
   }
-  textToReceiveSdp.value = "";
+  //   textToReceiveSdp.value = "";
 }
 
 // Offer側のSDPをセットする処理
@@ -267,8 +290,8 @@ function hangUp() {
       console.log("sending close message");
       ws.send(message);
       cleanupVideoElement(remoteVideo);
-      textForSendSdp.value = "";
-      textToReceiveSdp.value = "";
+      //   textForSendSdp.value = "";
+      //   textToReceiveSdp.value = "";
       return;
     }
   }
@@ -279,4 +302,58 @@ function hangUp() {
 function cleanupVideoElement(element) {
   element.pause();
   element.srcObject = null;
+}
+
+function sendData() {
+  var dataObj = { point: { x: 555, y: 666 } };
+  var message = JSON.stringify(dataObj);
+
+  dataChannel.send(message);
+}
+
+function sendPoint(point_x, point_y) {
+  var dataObj = { point: { x: point_x, y: point_y } };
+  var message = JSON.stringify(dataObj);
+
+  dataChannel.send(message);
+}
+
+function prepareDataChannel(peer) {
+  if (!peer) {
+    console.log("not found peerConnection");
+    return;
+  }
+
+  var dataChannelOptions = {
+    ordered: false, // 順序を保証しない
+    maxRetransmitTime: 3000, // ミリ秒
+    // maxRetransmits:
+  };
+
+  dataChannel = peer.createDataChannel("myLabel", dataChannelOptions);
+  //   dataChannel = peer.createDataChannel("chat", {
+  //     negotiated: true,
+  //     id: 0,
+  //   });
+
+  console.log("datachannel: " + dataChannel);
+
+  dataChannel.onerror = function (error) {
+    console.log("Data Channel Error:", error);
+  };
+
+  dataChannel.onmessage = function (event) {
+    // console.log("Got Data Channel Message:", event.data);
+    // var dataObj = JSON.parse(event.data);
+    // console.log("onmessage (send) / data:x=" + dataObj.point.x);
+  };
+
+  dataChannel.onopen = function () {
+    console.log("onopen (send) !!!!!!!!");
+    // dataChannel.send("Hello World!");
+  };
+
+  dataChannel.onclose = function () {
+    console.log("The Data Channel is Closed");
+  };
 }

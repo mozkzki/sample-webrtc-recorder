@@ -1,0 +1,43 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>WebRTC Data Channel Test</title>
+</head>
+
+<body>
+    <button type="button" onclick="startVideo();">Start Video</button>
+    <button type="button" onclick="connect();">Connect</button>
+    <button type="button" onclick="hangUp();">Hang Up</button>
+    <button type="button" onclick="sendData();">Test Data Channel</button>
+    <div>
+        <video id="local_video" autoplay muted=true style="width: 80px; height: 60px; border: 1px solid black;"></video>
+        <video id="remote_video" autoplay style="width: 80px; height: 60px; border: 1px solid black;"></video>
+    </div>
+    <p>SDP to send:<br />
+        <textarea id="text_for_send_sdp" rows="5" cols="60" readonly="readonly">SDP to send</textarea>
+    </p>
+    <p>SDP to receive:
+        <button type="button" onclick="onSdpText();">Receive remote SDP</button><br />
+        <textarea id="text_for_receive_sdp" rows="5" cols="60"></textarea>
+    </p>
+
+    <script type='text/javascript' src='./webrtc.js'></script>
+
+    <script>
+        window.addEventListener("load", init);
+
+        var localVideo = document.getElementById("local_video");
+        var localStream = null;
+        var remoteVideo = document.getElementById("remote_video");
+        var remoteStream = null;
+
+        function init() {
+            console.log("test start.");
+        }
+    </script>
+
+</body>
+
+</html>
