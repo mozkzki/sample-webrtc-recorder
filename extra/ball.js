@@ -39,7 +39,11 @@ window.onload = () => {
 
 // マウスを追随
 window.addEventListener("mousemove", (e) => {
-  console.log("mouse:(" + e.clientX + "," + e.clientY + ")");
+  console.log("mousemove:(" + e.clientX + "," + e.clientY + ")");
+  newPosition = getStartPosition(e.clientX, e.clientY);
+});
+window.addEventListener("touchmove", (e) => {
+  console.log("touchmove:(" + e.clientX + "," + e.clientY + ")");
   newPosition = getStartPosition(e.clientX, e.clientY);
 });
 
