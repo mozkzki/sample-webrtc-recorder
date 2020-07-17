@@ -243,6 +243,9 @@ function updateMagmaBall(map) {
   magma.position.x = newPosition.x;
   magma.position.y = newPosition.y;
   magma.position.z = 0;
+
+  let magnification = (gauge / 100) * 12;
+  magma.scale.set(magnification, magnification, magnification);
 }
 
 function drawOuraBall(ball) {
