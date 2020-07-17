@@ -284,6 +284,9 @@ function updateOuraBall(map) {
   aura.position.x = newPosition.x;
   aura.position.y = newPosition.y;
   aura.position.z = 0;
+
+  let magnification = (gauge / 100) * 10 * 0.8;
+  aura.scale.set(magnification, magnification, magnification);
 }
 
 function drawGlow(ball) {
@@ -313,6 +316,9 @@ function updateGlow(glow) {
   glow.position.x = newPosition.x;
   glow.position.y = newPosition.y;
   glow.position.z = newPosition.z;
+
+  let magnification = (gauge / 100) * 12;
+  glow.scale.set(magnification, magnification, magnification);
 }
 
 let sparks = null;
@@ -336,6 +342,9 @@ function updateSparkAll() {
   sparks.position.x = newPosition.x;
   sparks.position.y = newPosition.y;
   sparks.position.z = newPosition.z;
+
+  let magnification = (gauge / 100) * 12;
+  sparks.scale.set(magnification, magnification, magnification);
 
   sparkList.forEach((spark) => {
     updateSpark(spark);
@@ -542,6 +551,9 @@ function updateFlares() {
   flares.position.y = newPosition.y;
   flares.position.z = newPosition.z;
 
+  let magnification = (gauge / 100) * 12;
+  flares.scale.set(magnification, magnification, magnification);
+
   flareList.forEach((flare, i) => {
     updateFlare(flare, i);
   });
@@ -601,4 +613,7 @@ function updateInGrow(inGrow) {
   inGrow.position.x = newPosition.x;
   inGrow.position.y = newPosition.y;
   inGrow.position.z = newPosition.z;
+
+  let magnification = (gauge / 100) * 12;
+  inGrow.scale.set(magnification, magnification, magnification);
 }
