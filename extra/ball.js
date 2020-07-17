@@ -285,7 +285,7 @@ function updateOuraBall(map) {
   aura.position.y = newPosition.y;
   aura.position.z = 0;
 
-  let magnification = (gauge / 100) * 10 * 0.8;
+  let magnification = (gauge / 100) * 12;
   aura.scale.set(magnification, magnification, magnification);
 }
 
