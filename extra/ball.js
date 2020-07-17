@@ -13,6 +13,96 @@ let sparkList = [];
 /** スパークの数 */
 let sparkNum = 50;
 
+let magma = null;
+let aura = null;
+
+let wall = null;
+let newPosition = new THREE.Vector3(0, 0, 0);
+
+let gauge = 1;
+var gaugeSlider = document.getElementById("gauge");
+
+// 現在の値を埋め込む関数
+const setCurrentValue = (val) => {
+  gauge = Number(val);
+};
+
+// inputイベント時に値をセットする関数
+const rangeOnChange = (e) => {
+  setCurrentValue(e.target.value);
+};
+
+window.onload = () => {
+  // 変更に合わせてイベントを発火する
+  gaugeSlider.addEventListener("input", rangeOnChange);
+};
+
+// マウスを追随
+window.addEventListener("mousemove", (e) => {
+  console.log("mouse:(" + e.clientX + "," + e.clientY + ")");
+  newPosition = getStartPosition(e.clientX, e.clientY);
+});
+
+function getStartPosition(target_x, target_y) {
+  let width = window.innerWidth;
+  let height = window.innerHeight;
+
+  // 取得したスクリーン座標を-1〜1に正規化する（WebGLは-1〜1で座標が表現される）
+  var mouseX = (target_x / width) * 2 - 1;
+  var mouseY = -(target_y / height) * 2 + 1;
+
+  // マウスの位置ベクトル
+  var pos = new THREE.Vector3(mouseX, mouseY, 1);
+
+  // pos はスクリーン座標系なので、オブジェクトの座標系に変換
+  // オブジェクト座標系は今表示しているカメラからの視点なので、第二引数にカメラオブジェクトを渡す
+  pos.unproject(camera);
+
+  //   console.log("origin(" + target_x + "," + target_y + ")");
+  //   console.log("screen(" + mouseX + "," + mouseY + "," + 1 + ")");
+  //   console.log("world (" + pos.x + "," + pos.y + "," + pos.z + ")");
+
+  // 始点、向きベクトルを渡してレイを作成
+  var ray = new THREE.Raycaster(
+    camera.position,
+    pos.sub(camera.position).normalize()
+  );
+
+  // 交差判定
+  // 引数は取得対象となるMeshを渡す
+  var objs = ray.intersectObject(wall);
+
+  var pos_new = new THREE.Vector3(0, 0, 0);
+  if (objs.length > 0) {
+    // 交差していたらobjsが1以上になる
+    pos_new.x = objs[0].point.x;
+    pos_new.y = objs[0].point.y;
+    pos_new.z = pos.z;
+  }
+
+  //   console.log(
+  //     "start (" + pos_new.x + "," + pos_new.y + "," + pos_new.z + ")"
+  //   );
+
+  return pos_new;
+}
+
+function createWall() {
+  const geometry = new THREE.BoxBufferGeometry(65535, 65535, 1);
+  const material = new THREE.MeshStandardMaterial({
+    color: 0x000000,
+    // transparent: true,
+    opacity: 0.0,
+  });
+
+  wall = new THREE.Mesh(geometry, material);
+  scene.add(wall);
+  wall.position.set(0, 0, 0);
+
+  // レンダリング
+  renderer.render(scene, camera);
+}
+
 function _init() {
   init3DField();
   _resize();
@@ -50,7 +140,8 @@ function init3DField() {
     1,
     1000
   );
-  camera.position.set(radius, 4, 0);
+  //   camera.position.set(radius, 4, 0);
+  camera.position.set(0, 4, radius);
   //   camera.position.set(0, 0, 10);
 
   // シーンを作成
@@ -64,12 +155,15 @@ function init3DField() {
   // // シーンに追加
   // scene.add(directionalLight);
 
+  // 透明な壁を作成（スクリーン座標変換用）
+  createWall();
+
   var magmaMap = drawMagmaBall(ball);
   var ouraMap = drawOuraBall(ball);
-  drawGlow(ball);
+  var glow = drawGlow(ball);
   drawSparkAll(ball);
   drawFlares(ball);
-  addInGrow(ball);
+  var inGrow = addInGrow(ball);
 
   // グリッドヘルパー
   const gridHelper = new THREE.GridHelper(10, 20);
@@ -90,6 +184,9 @@ function init3DField() {
     updateOuraBall(ouraMap);
     updateSparkAll();
     updateFlares();
+    updateGlow(glow);
+    updateInGrow(inGrow);
+
     updateCamera();
 
     // FPSを30に
@@ -103,10 +200,10 @@ function init3DField() {
 }
 
 function updateCamera() {
-  cameraAngle += 0.3;
-  let lad = (cameraAngle * Math.PI) / 180;
-  camera.position.x = radius * Math.sin(lad);
-  camera.position.z = radius * Math.cos(lad);
+  //   cameraAngle += 0.3;
+  //   let lad = (cameraAngle * Math.PI) / 180;
+  //   camera.position.x = radius * Math.sin(lad);
+  //   camera.position.z = radius * Math.cos(lad);
   camera.lookAt(new THREE.Vector3(0, 0, 0));
 }
 
@@ -121,17 +218,17 @@ function drawMagmaBall(ball) {
   });
 
   // テクスチャーをあてた球のMeshを作成します。
-  const mesh = new THREE.Mesh(geometry, material);
+  magma = new THREE.Mesh(geometry, material);
   // 縦横でリピートするように設定します。
   map.wrapS = map.wrapT = THREE.RepeatWrapping;
 
-  mesh.position.x = 0;
-  mesh.position.y = 0;
-  mesh.position.z = 0;
+  magma.position.x = 0;
+  magma.position.y = 0;
+  magma.position.z = 0;
 
   // シーンに追加
-  scene.add(mesh);
-  ball.add(mesh);
+  scene.add(magma);
+  ball.add(magma);
 
   return map;
 }
@@ -142,6 +239,10 @@ function updateMagmaBall(map) {
   //   map.offset.y += 0.008;
   map.offset.x += 0.001;
   map.offset.y += 0.002;
+
+  magma.position.x = newPosition.x;
+  magma.position.y = newPosition.y;
+  magma.position.z = 0;
 }
 
 function drawOuraBall(ball) {
@@ -157,17 +258,17 @@ function drawOuraBall(ball) {
   });
 
   // テクスチャーをあてた球のMeshを作成します。
-  const mesh = new THREE.Mesh(geometry, material);
+  aura = new THREE.Mesh(geometry, material);
   // 縦横でリピートするように設定します。
   map.wrapS = map.wrapT = THREE.RepeatWrapping;
 
-  mesh.position.x = 0;
-  mesh.position.y = 0;
-  mesh.position.z = 0;
+  aura.position.x = 0;
+  aura.position.y = 0;
+  aura.position.z = 0;
 
   // シーンに追加
-  scene.add(mesh);
-  ball.add(mesh);
+  scene.add(aura);
+  ball.add(aura);
 
   return map;
 }
@@ -176,6 +277,10 @@ function updateOuraBall(map) {
   // 毎フレーム位置を0.005ずつ動かす。
   map.offset.x += 0.005;
   map.offset.y += 0.005;
+
+  aura.position.x = newPosition.x;
+  aura.position.y = newPosition.y;
+  aura.position.z = 0;
 }
 
 function drawGlow(ball) {
@@ -197,10 +302,20 @@ function drawGlow(ball) {
   sprite.scale.multiplyScalar(11);
   //   scene.add(sprite);
   ball.add(sprite);
+
+  return sprite;
 }
 
+function updateGlow(glow) {
+  glow.position.x = newPosition.x;
+  glow.position.y = newPosition.y;
+  glow.position.z = newPosition.z;
+}
+
+let sparks = null;
+
 function drawSparkAll(ball) {
-  const sparks = new THREE.Group();
+  sparks = new THREE.Group();
   ball.add(sparks);
 
   let perAngle = 360 / sparkNum;
@@ -215,6 +330,10 @@ function drawSparkAll(ball) {
 }
 
 function updateSparkAll() {
+  sparks.position.x = newPosition.x;
+  sparks.position.y = newPosition.y;
+  sparks.position.z = newPosition.z;
+
   sparkList.forEach((spark) => {
     updateSpark(spark);
   });
@@ -393,8 +512,9 @@ const flareOffsetList = [];
 /**
  * コンストラクター
  */
+let flares = null;
 function drawFlares(ball) {
-  const flares = new THREE.Group();
+  flares = new THREE.Group();
   ball.add(flares);
 
   let perAngle = 360 / flareNum;
@@ -415,6 +535,10 @@ function drawFlares(ball) {
  * フレーム毎の更新です。
  */
 function updateFlares() {
+  flares.position.x = newPosition.x;
+  flares.position.y = newPosition.y;
+  flares.position.z = newPosition.z;
+
   flareList.forEach((flare, i) => {
     updateFlare(flare, i);
   });
@@ -466,4 +590,12 @@ function addInGrow(ball) {
   // メッシュ
   const mesh = new THREE.Mesh(geometry, material);
   ball.add(mesh);
+
+  return mesh;
+}
+
+function updateInGrow(inGrow) {
+  inGrow.position.x = newPosition.x;
+  inGrow.position.y = newPosition.y;
+  inGrow.position.z = newPosition.z;
 }

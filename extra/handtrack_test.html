@@ -47,14 +47,6 @@
         "
       ></canvas>
 
-      <!-- 手認識デバッグ用 -->
-      <canvas
-        id="hand_canvas"
-        width="640px"
-        height="480px"
-        style="position: absolute; width: 640px; height: 480px;"
-      ></canvas>
-
       <!-- 顔認識デバッグ用 -->
       <canvas
         id="face_canvas"
@@ -70,9 +62,9 @@
       ></canvas>
     </div>
 
+    <!-- 手認識デバッグ用 -->
     <canvas
-      id="test_canvas"
-      onclick="offset(event)"
+      id="hand_canvas"
       width="640px"
       height="480px"
       style="width: 640px; height: 480px;"
@@ -97,8 +89,6 @@
     const merge_canvas = document.getElementById("merge_canvas");
     const face_canvas = document.getElementById("face_canvas");
     const hand_canvas = document.getElementById("hand_canvas");
-
-    const test_canvas = document.getElementById("test_canvas");
 
     let model;
     let frame = 0;
@@ -152,7 +142,7 @@
     function loadHandtrack() {
       const options = {
         flipHorizontal: true, // flip e.g for video
-        maxNumBoxes: 3, // maximum number of boxes to detect
+        maxNumBoxes: 1, // maximum number of boxes to detect
         iouThreshold: 0.5, // ioU threshold for non-max suppression
         scoreThreshold: 0.7, // confidence threshold for predictions.
       };
@@ -163,7 +153,7 @@
           if (status) {
             console.log("video started", status);
 
-            startFaceTrack();
+            // startFaceTrack();
 
             merge_animate();
 
@@ -180,9 +170,6 @@
     function runDetection() {
       model.detect(localVideo).then((predictions) => {
         requestAnimationFrame(runDetection);
-        // console.log("Predictions: ", predictions);
-
-        // console.log("-------" + predictions[0] + "," + predictions[1]);
 
         if (removeCounter > 5) {
           removeBall();
@@ -194,33 +181,37 @@
 
         if (predictions[0]) {
           var bbox = predictions[0].bbox;
+
+          var next_x = bbox[0] + bbox[2] / 2;
+          var next_y = bbox[1] + bbox[3] / 2;
+
           gBeforeX = gX;
           gBeforeY = gY;
-          gX = bbox[0] + bbox[2] / 2;
-          gY = bbox[1] + bbox[3] / 2;
+          gX = next_x;
+          gY = next_y;
+
+          console.clear();
+          console.log("(x,y)=(" + gX + "," + gY + ")");
 
           // 気弾は激しい移動をすると消えてしまう
-          var idouX = Math.abs(gBeforeX - gX);
-          var idouY = Math.abs(gBeforeY - gY);
-          if (idouX > 120 || idouY > 120) {
-            removeCounter++;
-          }
+          //   var idouX = Math.abs(gBeforeX - gX);
+          //   var idouY = Math.abs(gBeforeY - gY);
+          //   if (idouX > 120 || idouY > 120) {
+          //     removeCounter++;
+          //   }
 
+          // 手を大きくするとゲージアップ
           var width = bbox[2];
           var height = bbox[3];
-          //   console.log("(width,height)=(" + width + "," + height + ")");
           if (width > 250 && height > 270) {
-            if (g_mag < 15) {
-              g_mag += 0.1;
-            }
+            gauge += 1;
           }
+          // 手を小さくするとゲージダウン
           if (width < 200 || height < 210) {
-            if (g_mag > 1) {
-              g_mag -= 0.1;
+            if (gauge > 1) {
+              gauge -= 1;
             }
           }
-
-          //   console.log("(x,y)=(" + gX + "," + gY + ")");
 
           if (!gIsExistBall) {
             gIsExistBall = true;
@@ -235,43 +226,10 @@
         //-------------------------------------
         // 手認識結果を表示する場合コメントアウト
         //-------------------------------------
-        // const context = hand_canvas.getContext("2d");
-        // model.renderPredictions(predictions, hand_canvas, context, localVideo);
+        // 重ねると後ろのthree_canvasが見えなくなるので下部に置いてる
+        const context = hand_canvas.getContext("2d");
+        model.renderPredictions(predictions, hand_canvas, context, localVideo);
       });
-    }
-
-    function test_animate() {
-      // renderer.clear();
-
-      // test_canvas.width = localVideo.width;
-      // test_canvas.height = localVideo.height;
-
-      const context = test_canvas.getContext("2d");
-
-      // var devicePixelRatio = window.devicePixelRatio || 1;
-      // var backingStoreRatio = _getBackingStorePixelRatio(context);
-      // var ratio = devicePixelRatio / backingStoreRatio;
-      // context.scale(ratio, ratio);
-
-      // 描画をクリア
-      context.clearRect(0, 0, test_canvas.width, test_canvas.height);
-      // videoをcanvasにトレース
-      context.drawImage(
-        localVideo,
-        0,
-        0,
-        test_canvas.width,
-        test_canvas.height
-      );
-
-      //   // FPSを30に
-      //   if (frame % 2) {
-      //     return;
-      //   }
-
-      // レンダリング
-      //   renderer.render(scene, camera);
-      requestAnimationFrame(test_animate);
     }
 
     function merge_animate() {
@@ -315,7 +273,10 @@
     let gBeforeY = 0;
     let gOffsetX = 0;
     let gOffsetY = 0;
-    let g_mag = 1;
+
+    let gauge = 1;
+    let magnification = 1;
+
     let g_dist = 0;
 
     // 表示領域を指定
@@ -330,7 +291,7 @@
         canvas: three_canvas,
         alpha: true,
         // 遅くなる
-        // antialias: true,
+        antialias: true,
       });
       renderer.setPixelRatio(window.devicePixelRatio);
       //   renderer.setPixelRatio(1);
@@ -358,6 +319,63 @@
       createWall();
     }
 
+    // マウスを追随
+    // window.addEventListener("mousemove", (e) => {
+    //   console.log("mouse:(" + e.clientX + "," + e.clientY + ")");
+    //   gBeforeX = gX;
+    //   gBeforeY = gY;
+    //   gX = e.clientX;
+    //   gY = e.clientY;
+    // });
+
+    function getNextPosition(x1, y1, x2, y2, delta) {
+      // ２点（x1, y1）→（x2, y2）を通る直線の方程式
+      //
+      // y = ax + b
+      //
+      // a = (y2-y1) / (x2-x1)
+      // b = ((x2 * y1) - (x1 * y2)) / (x2-x1)
+
+      var a = (y2 - y1) / (x2 - x1);
+      var b = (x2 * y1 - x1 * y2) / (x2 - x1);
+
+      var direction_x = x2 - x1;
+      var direction_y = y2 - y1;
+      var idou_x = Math.abs(direction_x);
+      var idou_y = Math.abs(direction_y);
+
+      var new_x = 0;
+      var new_y = 0;
+
+      var delta = 1;
+
+      if (idou_x > idou_y) {
+        // X方向への移動量のほうが大きい
+        if (direction_x < 0) {
+          // 負の方向への移動
+          delta = -1 * delta;
+        }
+        new_x = x1 + delta;
+        new_y = a * new_x + b;
+      } else {
+        // Y方向への移動量のほうが大きい
+        if (direction_y < 0) {
+          // 負の方向への移動
+          delta = -1 * delta;
+        }
+        new_y = y1 + delta;
+        new_x = (new_y - b) / a;
+      }
+
+      return new THREE.Vector3(new_x, new_y, 0);
+    }
+
+    function checkGauge() {
+      // gauge: 1 - 100
+
+      magnification = (gauge / 100) * 12;
+    }
+
     function removeBall() {
       console.log("remove!!!!!!!!!!!!!!!!!");
       if (gBall) {
@@ -367,7 +385,7 @@
         gBall.material.dispose();
         gBall = null;
       }
-      g_mag = 1;
+      magnification = 1;
       g_dist = 0;
       gOffsetX = 0;
       gOffsetY = 0;
@@ -408,20 +426,25 @@
 
         frame++;
 
-        // renderer.clear();
+        // ゲージの値をチェックして各種属性値を調整
+        checkGauge();
 
-        // 検知した口の座標はスクリーン座標(手前の画面に張り付いてる座標)なので
-        // グローバル座標で発射された場所(奥の画面)を求める
-        const start = getStartPosition(gX + gOffsetX, gY + gOffsetY);
+        var nextPosition = getNextPosition(gBeforeX, gBeforeY, gX, gY);
+
+        // グローバル座標に変換
+        const start = getStartPosition(nextPosition.x, nextPosition.y);
 
         // 始点 (zは衝突検知用の壁と同じにする必要がある)
         const v1 = new THREE.Vector3(start.x, start.y, 0);
+
+        // console.log("v1: (" + v1.x + "," + v1.y + ")");
 
         mesh.position.x = v1.x;
         mesh.position.y = v1.y;
         mesh.position.z = v1.z;
 
-        // if (g_mag > 2) {
+        // 微妙に拡縮させる処理
+        // if (magnification > 2) {
         //   if (g_dist > 3) {
         //     g_dist -= 0.08;
         //   } else {
@@ -429,17 +452,11 @@
         //   }
         // }
 
-        mesh.scale.set(g_mag + g_dist, g_mag + g_dist, g_mag + g_dist);
-        // console.log("mag: " + g_mag);
-
-        // 回転速度
-        // mesh.rotation.x += 0.05;
-        // mesh.rotation.y += 0.03;
-
-        // mesh.position.z += 15;
-        // const v = getNextPosition(v1, v2, mesh.position.z);
-        // mesh.position.x = v.x;
-        // mesh.position.y = v.y;
+        mesh.scale.set(
+          magnification + g_dist,
+          magnification + g_dist,
+          magnification + g_dist
+        );
 
         // // FPSを30に
         // if (frame % 2) {
@@ -561,8 +578,8 @@
           var mouse_under = positions[57];
           var mouse_distance = mouse_under[1] - mouse_upper[1];
           if (mouse_distance > 15) {
-            if (g_mag < 15) {
-              //   g_mag += 0.1;
+            if (gauge < 100) {
+              gauge += 1;
             }
             console.log("shooooooooooooooooooooooooooot!");
           }
@@ -611,13 +628,13 @@
 
       recorder = new MediaRecorder(localStream);
       /* -- option を使う場合のサンプル --
-          var options = {
-            audioBitsPerSecond : 64000,
-            videoBitsPerSecond : 512000,
-            mimeType : 'video/webm; codecs=vp9'
-          };
-          recorder = new MediaRecorder(localStream, options);    
-          -- option を使う場合のサンプル ---*/
+            var options = {
+              audioBitsPerSecond : 64000,
+              videoBitsPerSecond : 512000,
+              mimeType : 'video/webm; codecs=vp9'
+            };
+            recorder = new MediaRecorder(localStream, options);
+            -- option を使う場合のサンプル ---*/
 
       chunks = []; // 格納場所をクリア
 
