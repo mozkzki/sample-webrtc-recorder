@@ -9,6 +9,7 @@
 </head>
 
 <body>
+    <button type="button" onclick="loadHandtrack();">Start Video</button>
     <button type="button" onclick="removeBall();">Remove Ball</button>
     <button type="button" onclick="resetOffset();">Reset Offset</button>
     <button type="button" onclick="startRecording()">Start Recording</button>
@@ -71,7 +72,7 @@
     function init() {
         // startVideo();
         init3DField();
-        loadHandtrack();
+        // loadHandtrack();
     }
 
     // // getUserMediaでカメラ、マイクにアクセス
