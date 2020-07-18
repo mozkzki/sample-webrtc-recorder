@@ -5,13 +5,15 @@
     <meta charset="utf-8" />
     <!-- ビューポートの考え方 -->
     <!-- https://qiita.com/ryounagaoka/items/045b2808a5ed43f96607 -->
-    <!-- <meta name="viewport" content="width=640,initial-scale=1" /> -->
+    <meta name="viewport" content="width=device-width,initial-scale=1">
 </head>
 
 <body>
     <button type="button" onclick="playVideo();">Start Video</button>
-    <canvas id="testcanvas" width="640px" height="480px" style="width: 640px; height: 480px;"></canvas>
-    <video id="myvideo" playsinline width="640px" height="480px"></video>
+    <div>
+        <canvas id="testcanvas"></canvas>
+        <video id="myvideo" playsinline style="display: none;"></video>
+    </div>
 </body>
 
 <script>
