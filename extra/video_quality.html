@@ -9,6 +9,7 @@
 </head>
 
 <body>
+    <button type="button" onclick="playVideo();">Start Video</button>
     <canvas id="testcanvas" width="640px" height="480px" style="width: 640px; height: 480px;"></canvas>
     <video id="myvideo" width="640px" height="480px"></video>
 </body>
@@ -31,18 +32,26 @@
                 video: true,
                 audio: false
             });
-            playVideo(localVideo, localStream);
+            // playVideo(localVideo, localStream);
         } catch (err) {
             console.error('mediaDevice.getUserMedia() error:', err);
         }
     }
 
     // Videoの再生を開始する
-    async function playVideo(element, stream) {
-        element.srcObject = stream;
+    // async function playVideo(element, stream) {
+    //     element.srcObject = stream;
+    //     try {
+    //         await element.play();
+    //     } catch (error) {
+    //         console.log('error auto play:' + error);
+    //     }
+    // }
+    function playVideo() {
+        localVideo.srcObject = localStream;
         try {
-            await element.play();
-        } catch (erro) {
+            localVideo.play();
+        } catch (error) {
             console.log('error auto play:' + error);
         }
     }
