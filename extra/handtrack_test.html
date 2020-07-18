@@ -16,12 +16,15 @@
     <a href="#" id="downloadlink">Download</a>
     <div id="message">loading model...</div>
     <div style="position: relative; width: 640px; height: 480px;">
-      <video
-        id="local_video"
-        style="display: none; position: absolute;"
-        width="640px"
-        height="480px"
-      ></video>
+      <!-- safariの仕様でspanにnoneを指定しないと消えない・・ -->
+      <span style="display: none;">
+        <video
+          id="local_video"
+          style="display: none; position: absolute;"
+          width="640px"
+          height="480px"
+        ></video
+      ></span>
 
       <canvas
         id="three_canvas"
