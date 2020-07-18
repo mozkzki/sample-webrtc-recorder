@@ -4,10 +4,35 @@
     <meta charset="utf-8" />
     <!-- ビューポートの考え方 -->
     <!-- https://qiita.com/ryounagaoka/items/045b2808a5ed43f96607 -->
-    <!-- <meta name="viewport" content="width=640,initial-scale=1" /> -->
+    <!-- <meta name="viewport" content="width=device-width,initial-scale=1"> -->
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,user-scalable=no"
+    />
   </head>
 
   <body>
+    <input type="checkbox" id="handTracking" onchange="toggleHandTracking()" />
+    Hand Track
+    <input
+      type="checkbox"
+      id="debugHandTracking"
+      onchange="debugHandTracking()"
+    />
+    Debug Hand Track
+    <input
+      type="checkbox"
+      id="faceDetection"
+      onchange="toggleFaceDetection()"
+    />
+    Face Detection
+    <input
+      type="checkbox"
+      id="debugFaceDetection"
+      onchange="debugFaceDetection()"
+    />
+    Debug Face Detection
+
     <button type="button" onclick="playVideo();">Start Video</button>
     <button type="button" onclick="removeBall();">Remove Ball</button>
     <button type="button" onclick="resetOffset();">Reset Offset</button>
@@ -15,62 +40,29 @@
     <button type="button" onclick="stopRecording()">Stop Recording</button>
     <a href="#" id="downloadlink">Download</a>
     <div id="message">loading model...</div>
-    <div style="position: relative; width: 640px; height: 480px;">
+    <div id="main" style="position: relative;">
       <video
         id="local_video"
         playsinline
         style="display: none; position: absolute;"
-        width="640px"
-        height="480px"
       ></video>
 
       <canvas
         id="three_canvas"
-        width="640px"
-        height="480px"
-        style="
-          transform: scaleX(-1);
-          display: none;
-          position: absolute;
-          width: 640px;
-          height: 480px;
-        "
+        style="transform: scaleX(-1); display: none; position: absolute;"
       ></canvas>
 
       <canvas
         id="merge_canvas"
-        width="640px"
-        height="480px"
-        style="
-          transform: scaleX(-1);
-          position: absolute;
-          width: 640px;
-          height: 480px;
-        "
+        style="transform: scaleX(-1); position: absolute;"
       ></canvas>
 
       <!-- 顔認識デバッグ用 -->
-      <canvas
-        id="face_canvas"
-        onclick="offset(event)"
-        width="640px"
-        height="480px"
-        style="
+      <!-- <canvas id="face_canvas" onclick="offset(event)" style="
           transform: scaleX(-1);
           position: absolute;
-          width: 640px;
-          height: 480px;
-        "
-      ></canvas>
+        "></canvas> -->
     </div>
-
-    <!-- 手認識デバッグ用 -->
-    <canvas
-      id="hand_canvas"
-      width="640px"
-      height="480px"
-      style="width: 640px; height: 480px;"
-    ></canvas>
   </body>
 
   <!-- handtrack.js -->
@@ -89,16 +81,97 @@
 
     const localVideo = document.getElementById("local_video");
     const merge_canvas = document.getElementById("merge_canvas");
-    const face_canvas = document.getElementById("face_canvas");
-    const hand_canvas = document.getElementById("hand_canvas");
+
+    let hand_canvas = null;
+    let isHandTracking = false;
+    let isDebugHandTrack = false;
+    let handTrackModel = null;
+
+    let face_canvas = null;
+    let isFaceDetection = false;
+    let isDebugFaceDetection = false;
 
     let localStream = null;
-    let model;
     let frame = 0;
 
+    function toggleHandTracking() {
+      if (document.getElementById("handTracking").checked) {
+        isHandTracking = true;
+        loadHandtrack();
+      } else {
+        isHandTracking = false;
+        handTrackModel = null;
+        document.getElementById("debugHandTracking").checked = false;
+        debugHandTracking();
+      }
+    }
+
+    function debugHandTracking() {
+      if (document.getElementById("debugHandTracking").checked) {
+        // チェックON
+        hand_canvas = document.createElement("canvas");
+        hand_canvas.id = "hand_canvas";
+        hand_canvas.width = window.innerWidth;
+        hand_canvas.height = window.innerHeight;
+
+        var main = document.getElementById("main");
+        document.body.insertBefore(hand_canvas, main);
+
+        isDebugHandTrack = true;
+      } else {
+        // チェックOFF
+        var canvas = document.getElementById("hand_canvas");
+        document.body.removeChild(canvas);
+        hand_canvas = null;
+        isDebugHandTrack = false;
+      }
+    }
+
+    function toggleFaceDetection() {
+      if (document.getElementById("faceDetection").checked) {
+        isFaceDetection = true;
+      } else {
+        isFaceDetection = false;
+        document.getElementById("debugFaceDetection").checked = false;
+        debugFaceDetection();
+      }
+    }
+
+    function debugFaceDetection() {
+      var main = document.getElementById("main");
+      if (document.getElementById("debugFaceDetection").checked) {
+        // チェックON
+        face_canvas = document.createElement("canvas");
+        face_canvas.id = "face_canvas";
+        face_canvas.width = window.innerWidth;
+        face_canvas.height = window.innerHeight;
+        face_canvas.onclick = "offset(event)";
+        face_canvas.style.transform = "scaleX(-1)";
+        face_canvas.style.position = "absolute";
+
+        main.appendChild(face_canvas);
+
+        isDebugFaceDetection = true;
+      } else {
+        // チェックOFF
+        var canvas = document.getElementById("face_canvas");
+        main.removeChild(canvas);
+        face_canvas = null;
+        isDebugFaceDetection = false;
+      }
+    }
+
     function init() {
+      setSize();
       startVideo();
       init3DField();
+    }
+
+    function setSize() {
+      localVideo.width = window.innerWidth;
+      localVideo.height = window.innerHeight;
+      merge_canvas.width = window.innerWidth;
+      merge_canvas.height = window.innerHeight;
     }
 
     // // getUserMediaでカメラ、マイクにアクセス
@@ -129,7 +202,7 @@
       localVideo.srcObject = localStream;
       try {
         localVideo.play();
-        loadHandtrack();
+        animate();
       } catch (error) {
         console.log("error auto play:" + error);
       }
@@ -159,96 +232,74 @@
         scoreThreshold: 0.7, // confidence threshold for predictions.
       };
       handTrack.load(options).then((l_model) => {
-        model = l_model;
+        handTrackModel = l_model;
         document.getElementById("message").innerText = "loaded!";
-
-        // startFaceTrack();
-        merge_animate();
-        runDetection();
-
-        // handTrack.startVideo(localVideo).then(function (status) {
-        //   if (status) {
-        //     console.log("video started", status);
-
-        //     startFaceTrack();
-        //     merge_animate();
-        //     runDetection();
-        //   } else {
-        //     console.log("video error", status);
-        //   }
-        // });
       });
     }
 
     let removeCounter = 0;
 
-    function runDetection() {
-      model.detect(localVideo).then((predictions) => {
-        requestAnimationFrame(runDetection);
+    function detectHand(predictions) {
+      // handTrackModel.detect(localVideo).then((predictions) => {
+      //     requestAnimationFrame(runDetection);
 
-        if (removeCounter > 5) {
-          removeBall();
+      if (removeCounter > 5) {
+        removeBall();
+      }
+
+      if (predictions[0] == undefined && predictions[1] == undefined) {
+        removeCounter++;
+      }
+
+      if (predictions[0]) {
+        var bbox = predictions[0].bbox;
+
+        var next_x = bbox[0] + bbox[2] / 2;
+        var next_y = bbox[1] + bbox[3] / 2;
+
+        gBeforeX = gX;
+        gBeforeY = gY;
+        gX = next_x;
+        gY = next_y;
+
+        //   console.clear();
+        console.log("(x,y)=(" + gX + "," + gY + ")");
+
+        // 気弾は激しい移動をすると消えてしまう
+        //   var idouX = Math.abs(gBeforeX - gX);
+        //   var idouY = Math.abs(gBeforeY - gY);
+        //   if (idouX > 120 || idouY > 120) {
+        //     removeCounter++;
+        //   }
+
+        // 手を大きくするとゲージアップ
+        var width = bbox[2];
+        var height = bbox[3];
+        if (width > 250 && height > 270) {
+          gauge += 1;
+        }
+        // 手を小さくするとゲージダウン
+        if (width < 200 || height < 210) {
+          if (gauge > 1) {
+            gauge -= 1;
+          }
         }
 
-        if (predictions[0] == undefined && predictions[1] == undefined) {
-          removeCounter++;
+        if (!gIsExistBall) {
+          gIsExistBall = true;
+          drawBall();
         }
+      } else {
+        //   if (gBall != null) {
+        //     removeBall();
+        //   }
+      }
 
-        if (predictions[0]) {
-          var bbox = predictions[0].bbox;
-
-          var next_x = bbox[0] + bbox[2] / 2;
-          var next_y = bbox[1] + bbox[3] / 2;
-
-          gBeforeX = gX;
-          gBeforeY = gY;
-          gX = next_x;
-          gY = next_y;
-
-          //   console.clear();
-          console.log("(x,y)=(" + gX + "," + gY + ")");
-
-          // 気弾は激しい移動をすると消えてしまう
-          //   var idouX = Math.abs(gBeforeX - gX);
-          //   var idouY = Math.abs(gBeforeY - gY);
-          //   if (idouX > 120 || idouY > 120) {
-          //     removeCounter++;
-          //   }
-
-          // 手を大きくするとゲージアップ
-          var width = bbox[2];
-          var height = bbox[3];
-          if (width > 250 && height > 270) {
-            gauge += 1;
-          }
-          // 手を小さくするとゲージダウン
-          if (width < 200 || height < 210) {
-            if (gauge > 1) {
-              gauge -= 1;
-            }
-          }
-
-          if (!gIsExistBall) {
-            gIsExistBall = true;
-            drawBall();
-          }
-        } else {
-          //   if (gBall != null) {
-          //     removeBall();
-          //   }
-        }
-
-        //-------------------------------------
-        // 手認識結果を表示する場合コメントアウト
-        //-------------------------------------
-        // 重ねると後ろのthree_canvasが見えなくなるので下部に置いてる
-        const context = hand_canvas.getContext("2d");
-        model.renderPredictions(predictions, hand_canvas, context, localVideo);
-      });
+      // });
     }
 
-    function merge_animate() {
-      requestAnimationFrame(merge_animate);
+    function animate() {
+      requestAnimationFrame(animate);
 
       const context = merge_canvas.getContext("2d");
 
@@ -271,6 +322,48 @@
         merge_canvas.width,
         merge_canvas.height
       );
+
+      //-------------------------------------
+      // 手認識関連
+      //-------------------------------------
+      if (isHandTracking) {
+        if (handTrackModel == null) {
+          console.log("handtrack is null");
+        } else {
+          handTrackModel.detect(localVideo).then((predictions) => {
+            detectHand(predictions);
+
+            // [デバッグ用] 手認識結果を表示する
+            // TODO: 重ねると後ろのthree_canvasが見えなくなるので下部に置いてる
+            if (isDebugHandTrack) {
+              const context = hand_canvas.getContext("2d");
+              handTrackModel.renderPredictions(
+                predictions,
+                hand_canvas,
+                context,
+                localVideo
+              );
+            }
+          });
+        }
+      }
+
+      //-------------------------------------
+      // 顔認識関連
+      //-------------------------------------
+      // 顔認識を実施するなら
+      if (isFaceDetection) {
+        if (faceTracker == null) {
+          createFaceTracker();
+        }
+
+        detectFace();
+
+        // [デバッグ用] 顔認識結果を表示する
+        if (isDebugFaceDetection) {
+          drawFace(localVideo, face_canvas);
+        }
+      }
 
       // レンダリング
       renderer.render(scene, camera);
@@ -295,8 +388,8 @@
     let g_dist = 0;
 
     // 表示領域を指定
-    const g_width = 640;
-    const g_height = 480;
+    const g_width = window.innerWidth;
+    const g_height = window.innerHeight;
 
     let three_canvas = document.querySelector("#three_canvas");
 
@@ -545,48 +638,19 @@
     //------------------------------
     // 顔認識関連
     //------------------------------
+    let faceTracker = null;
 
-    // トラッカーオブジェクト
-    var track = new clm.tracker({
-      useWebGL: true,
-    });
-
-    function startFaceTrack() {
-      track.init(pModel);
-      track.start(localVideo);
-      startFaceTrackLoop(track);
-    }
-
-    // function adjustLocalVideo() {
-    //     localVideo.width = 640;
-    //     localVideo.height = 480;
-    //     face_canvas.width = localVideo.width;
-    //     face_canvas.height = localVideo.height;
-    // }
-
-    // トラッキング開始
-    // function startLocalVideoTracking() {
-    //     track.start(localVideo);
-    //     drawLocalVideoLoop();
-    // }
-
-    function startFaceTrackLoop() {
-      requestAnimationFrame(startFaceTrackLoop);
-
-      // FPSを30に
-      //   if (frame % 2) {
-      //     return;
-      //   }
-
-      detectFace();
-      //-------------------------------------
-      // 顔認識結果を表示する場合コメントアウト
-      //-------------------------------------
-      //   drawFace(localVideo, face_canvas);
+    function createFaceTracker() {
+      // トラッカーオブジェクト
+      faceTracker = new clm.tracker({
+        useWebGL: true,
+      });
+      faceTracker.init(pModel);
+      faceTracker.start(localVideo);
     }
 
     function detectFace() {
-      const positions = track.getCurrentPosition();
+      const positions = faceTracker.getCurrentPosition();
       if (positions) {
         if (positions[60] && positions[57]) {
           var mouse_upper = positions[60];
@@ -607,16 +671,17 @@
 
       // 描画をクリア
       context.clearRect(0, 0, canvas.width, canvas.height);
-      // videoをcanvasにトレース
-      //   context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      const positions = track.getCurrentPosition();
+      const positions = faceTracker.getCurrentPosition();
       if (positions) {
         // 顔のパーツの現在位置が存在したら描画
-        track.draw(canvas);
+        faceTracker.draw(canvas);
       }
     }
 
+    //------------------------------
+    // 録画関連
+    //------------------------------
     var recorder = null;
     var chunks = [];
     var blobUrl = null;
@@ -643,13 +708,13 @@
 
       recorder = new MediaRecorder(localStream);
       /* -- option を使う場合のサンプル --
-              var options = {
-                audioBitsPerSecond : 64000,
-                videoBitsPerSecond : 512000,
-                mimeType : 'video/webm; codecs=vp9'
-              };
-              recorder = new MediaRecorder(localStream, options);
-              -- option を使う場合のサンプル ---*/
+                var options = {
+                  audioBitsPerSecond : 64000,
+                  videoBitsPerSecond : 512000,
+                  mimeType : 'video/webm; codecs=vp9'
+                };
+                recorder = new MediaRecorder(localStream, options);
+                -- option を使う場合のサンプル ---*/
 
       chunks = []; // 格納場所をクリア
 
