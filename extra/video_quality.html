@@ -5,14 +5,14 @@
     <meta charset="utf-8" />
     <!-- ビューポートの考え方 -->
     <!-- https://qiita.com/ryounagaoka/items/045b2808a5ed43f96607 -->
-    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <!-- <meta name="viewport" content="width=device-width,initial-scale=1"> -->
     <!-- <meta name="viewport" content="width=480,initial-scale=1,user-scalable=no"> -->
 </head>
 
 <body>
+    <canvas id="testcanvas"></canvas>
     <button type="button" onclick="playVideo();">Start Video</button>
     <div>
-        <canvas id="testcanvas"></canvas>
         <video id="myvideo" playsinline style="display: none;"></video>
     </div>
 </body>
@@ -26,6 +26,10 @@
 
     function init() {
         console.log(window.innerWidth);
+        localVideo.width = window.innerWidth;
+        localVideo.height = window.innerHeight;
+        test_canvas.width = window.innerWidth;
+        test_canvas.height = window.innerHeight;
         startVideo();
     }
 
