@@ -8,7 +8,7 @@
   </head>
 
   <body>
-    <button type="button" onclick="startVideo();">Start Video</button>
+    <button type="button" onclick="playVideo();">Start Video</button>
     <button type="button" onclick="removeBall();">Remove Ball</button>
     <button type="button" onclick="resetOffset();">Reset Offset</button>
     <button type="button" onclick="startRecording()">Start Recording</button>
@@ -91,33 +91,43 @@
     const face_canvas = document.getElementById("face_canvas");
     const hand_canvas = document.getElementById("hand_canvas");
 
+    let localStream = null;
     let model;
     let frame = 0;
 
     function init() {
-      //   startVideo();
+      startVideo();
       init3DField();
     }
 
     // // getUserMediaでカメラ、マイクにアクセス
     async function startVideo() {
-      let localStream = null;
       try {
         localStream = await navigator.mediaDevices.getUserMedia({
           video: true,
           audio: false,
         });
-        playVideo(localVideo, localStream);
+        // playVideo(localVideo, localStream);
       } catch (err) {
         console.error("mediaDevice.getUserMedia() error:", err);
       }
     }
 
     // // Videoの再生を開始する
-    async function playVideo(element, stream) {
-      element.srcObject = stream;
+    // async function playVideo(element, stream) {
+    //   element.srcObject = stream;
+    //   try {
+    //     await element.play();
+    //     loadHandtrack();
+    //   } catch (error) {
+    //     console.log("error auto play:" + error);
+    //   }
+    // }
+    function playVideo() {
+      // playVideo(localVideo, localStream);
+      localVideo.srcObject = localStream;
       try {
-        await element.play();
+        localVideo.play();
         loadHandtrack();
       } catch (error) {
         console.log("error auto play:" + error);
