@@ -20,7 +20,8 @@
     Debug Face Detection
 
     <button type="button" onclick="playVideo();">Start Video</button>
-    <button type="button" onclick="createBall();">Create Ball</button>
+    <!-- <button type="button" onclick="createBall();">Create Ball</button> -->
+    <button type="button" onclick="createKidan();">Create Kidan</button>
     <button type="button" onclick="removeBall();">Remove Ball</button>
     <button type="button" onclick="resetOffset();">Reset Offset</button>
     <button type="button" onclick="startRecording()">Start Recording</button>
@@ -330,7 +331,8 @@
             merge_canvas.height
         );
 
-        drawBall();
+        // drawBall();
+        updateKidan();
 
         // Three.jsをレンダリング
         renderer.render(scene, camera);
@@ -744,6 +746,480 @@
         // ダウンロードの準備
         anchor.download = "recorded.webm";
         anchor.href = blobUrl;
+    }
+
+    //------------------------------
+    // 気弾
+    //------------------------------
+    const radius = 20;
+
+    let sparkList = [];
+    /** スパークの数 */
+    let sparkNum = 50;
+
+    let kidan = null;
+    let magma = null;
+    let magmaMap = null;
+    let aura = null;
+    let ouraMap = null;
+    let glow = null;
+    let inGrow = null;
+
+    let newPosition = new THREE.Vector3(0, 0, 0);
+
+    function createKidan() {
+        kidan = new THREE.Group();
+        scene.add(kidan);
+
+        magmaMap = drawMagmaBall(kidan);
+        ouraMap = drawOuraBall(kidan);
+        glow = drawGlow(kidan);
+        drawSparkAll(kidan);
+        drawFlares(kidan);
+        inGrow = addInGrow(kidan);
+    }
+
+    function updateKidan() {
+        if (kidan == null) {
+            return
+        }
+
+        // ゲージの値をチェックして各種属性値を調整
+        checkGauge();
+
+        // console.log("before point(x,y): (" + gBeforeX + "," + gBeforeY + ")");
+        // console.log("       point(x,y): (" + gX + "," + gY + ")");
+
+        var nextPosition = getNextPosition(gBeforeX, gBeforeY, gX, gY);
+
+        // グローバル座標に変換
+        const start = getStartPosition(nextPosition.x, nextPosition.y);
+
+        // 始点 (zは衝突検知用の壁と同じにする必要がある)
+        newPosition = new THREE.Vector3(start.x, start.y, 0);
+
+        updateMagmaBall(magmaMap);
+        updateOuraBall(ouraMap);
+        updateSparkAll();
+        updateFlares();
+        updateGlow(glow);
+        updateInGrow(inGrow);
+    }
+
+    function drawMagmaBall(ball) {
+        // テクスチャー読み込み
+        var loader = new THREE.TextureLoader();
+        var map = loader.load("textures/magma.png");
+
+        const geometry = new THREE.SphereGeometry(2, 20, 20);
+        const material = new THREE.MeshBasicMaterial({
+            map: map,
+        });
+
+        // テクスチャーをあてた球のMeshを作成します。
+        magma = new THREE.Mesh(geometry, material);
+        // 縦横でリピートするように設定します。
+        map.wrapS = map.wrapT = THREE.RepeatWrapping;
+
+        magma.position.x = 0;
+        magma.position.y = 0;
+        magma.position.z = 0;
+
+        // シーンに追加
+        scene.add(magma);
+        ball.add(magma);
+
+        return map;
+    }
+
+    function updateMagmaBall(map) {
+        // 毎フレーム位置を0.005ずつ動かす。
+        //   map.offset.x += 0.007;
+        //   map.offset.y += 0.008;
+        map.offset.x += 0.001;
+        map.offset.y += 0.002;
+
+        magma.position.x = newPosition.x;
+        magma.position.y = newPosition.y;
+        magma.position.z = 0;
+
+        let magnification = (gauge / 100) * 12;
+        magma.scale.set(magnification, magnification, magnification);
+    }
+
+    function drawOuraBall(ball) {
+        // テクスチャー読み込み
+        var loader = new THREE.TextureLoader();
+        var map = loader.load("textures/aura3_type2.png");
+
+        const geometry = new THREE.SphereGeometry(2.05, 20, 20);
+        const material = new THREE.MeshBasicMaterial({
+            map: map,
+            blending: THREE.AdditiveBlending,
+            transparent: true,
+        });
+
+        // テクスチャーをあてた球のMeshを作成します。
+        aura = new THREE.Mesh(geometry, material);
+        // 縦横でリピートするように設定します。
+        map.wrapS = map.wrapT = THREE.RepeatWrapping;
+
+        aura.position.x = 0;
+        aura.position.y = 0;
+        aura.position.z = 0;
+
+        // シーンに追加
+        scene.add(aura);
+        ball.add(aura);
+
+        return map;
+    }
+
+    function updateOuraBall(map) {
+        // 毎フレーム位置を0.005ずつ動かす。
+        map.offset.x += 0.005;
+        map.offset.y += 0.005;
+
+        aura.position.x = newPosition.x;
+        aura.position.y = newPosition.y;
+        aura.position.z = 0;
+
+        let magnification = (gauge / 100) * 12;
+        aura.scale.set(magnification, magnification, magnification);
+    }
+
+    function drawGlow(ball) {
+        // テクスチャーを読み込みます。
+        var loader = new THREE.TextureLoader();
+        var map = loader.load("textures/Particle01.png");
+
+        // マテリアル
+        var material = new THREE.SpriteMaterial({
+            map: map,
+            color: 0xffffff,
+            blending: THREE.AdditiveBlending,
+            opacity: 0.8,
+            transparent: true,
+        });
+
+        // スプライト
+        var sprite = new THREE.Sprite(material);
+        sprite.scale.multiplyScalar(11);
+        //   scene.add(sprite);
+        ball.add(sprite);
+
+        return sprite;
+    }
+
+    function updateGlow(glow) {
+        glow.position.x = newPosition.x;
+        glow.position.y = newPosition.y;
+        glow.position.z = newPosition.z;
+
+        let magnification = (gauge / 100) * 12;
+        glow.scale.set(magnification, magnification, magnification);
+    }
+
+    let sparks = null;
+
+    function drawSparkAll(ball) {
+        sparks = new THREE.Group();
+        ball.add(sparks);
+
+        let perAngle = 360 / sparkNum;
+        for (let i = 0; i < sparkNum; i++) {
+            let rad = (perAngle * i * Math.PI) / 180;
+            var spark = getSpark();
+            spark.rotation.x = 360 * Math.sin(rad);
+            spark.rotation.z = rad;
+            sparks.add(spark);
+            sparkList.push(spark);
+        }
+    }
+
+    function updateSparkAll() {
+        sparks.position.x = newPosition.x;
+        sparks.position.y = newPosition.y;
+        sparks.position.z = newPosition.z;
+
+        let magnification = (gauge / 100) * 12;
+        sparks.scale.set(magnification, magnification, magnification);
+
+        sparkList.forEach((spark) => {
+            updateSpark(spark);
+        });
+    }
+
+    function getSpark() {
+        // テクスチャーを読み込みます。
+        var loader = new THREE.TextureLoader();
+        var map = loader.load("textures/Burst01.png");
+        map.wrapS = map.wrapT = THREE.RepeatWrapping;
+
+        var geometory = new THREE.PlaneGeometry(0.15, 2);
+        var material = new THREE.MeshBasicMaterial({
+            map: map,
+            transparent: true,
+            side: THREE.DoubleSide,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending,
+            opacity: 0.5,
+        });
+
+        // 板状のMeshを作成します。
+        var mesh = new THREE.Mesh(geometory, material);
+        mesh.position.y = Math.random() * 5;
+        mesh.rotation.y = Math.random() * 2;
+
+        // meshをそのまま返しても何故かうまく行かない
+        var spark = new THREE.Object3D();
+        spark.add(mesh);
+
+        return spark;
+    }
+
+    const gSpeed = Math.random() * 0.2 + 0.2;
+
+    function updateSpark(spark) {
+        var mesh = spark.children[0];
+
+        mesh.position.y -= gSpeed;
+        mesh.material.opacity -= 0.05;
+
+        if (mesh.position.y < 0) {
+            mesh.position.y = 6;
+            mesh.material.opacity = 0.5;
+        }
+    }
+
+    let flareMap = null;
+    let flareBottomRadius = 2;
+    let flareDiameter = null;
+
+    function getFlare(offset) {
+        const speed = Math.random() * 0.05 + 0.01;
+        const topRadius = 6;
+        flareDiameter = topRadius - flareBottomRadius;
+
+        // ジオメトリ
+        const geometry = new THREE.CylinderGeometry(
+            topRadius,
+            flareBottomRadius,
+            0,
+            30,
+            3,
+            true
+        );
+
+        // カラーマップ
+        let loader = new THREE.TextureLoader();
+        flareMap = loader.load("./textures/aura3_type2.png");
+        flareMap.wrapS = flareMap.wrapT = THREE.RepeatWrapping;
+        flareMap.repeat.set(10, 10);
+
+        // マテリアル
+        const material = _createMaterial(offset);
+
+        // メッシュ
+        const mesh = new THREE.Mesh(geometry, material);
+
+        const flare = new THREE.Object3D();
+        flare.add(mesh);
+
+        return flare;
+    }
+
+    /**
+     * マテリアルを生成します。
+     * @return THREE.ShaderMaterial
+     */
+    function _createMaterial(offset) {
+        let material = new THREE.ShaderMaterial({
+            uniforms: {
+                map: {
+                    //   type : 't',
+                    value: flareMap,
+                },
+                offset: {
+                    //   type : 'v2',
+                    value: offset,
+                },
+                opacity: {
+                    //   type : 'f',
+                    value: 0.15,
+                },
+                innerRadius: {
+                    //   type : 'f',
+                    value: flareBottomRadius,
+                },
+                diameter: {
+                    //   type : 'f',
+                    value: flareDiameter,
+                },
+            },
+            vertexShader: `
+        varying vec2 vUv;       // フラグメントシェーダーに渡すUV座標
+        varying float radius;   // フラグメントシェーダーに渡す半径
+        uniform vec2 offset;    // カラーマップのズレ位置
+
+        void main()
+        {
+          // 本来の一からuvをずらす
+          vUv = uv + offset;
+          // 中心から頂点座標までの距離
+          radius = length(position);
+          // 3次元上頂点座標を画面上の二次元座標に変換(お決まり)
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+            fragmentShader: `
+        uniform sampler2D map;      // テクスチャ
+        uniform float opacity;      // 透明度
+        uniform float diameter;     // ドーナツの太さ
+        uniform float innerRadius;  // 内円の半径
+        varying vec2 vUv;           // UV座標
+        varying float radius;       // 中心ドットまでの距離
+        const float PI = 3.1415926; // 円周率
+
+        void main() {
+          // UVの位置からテクスチャの色を取得
+          vec4 tColor = texture2D(map, vUv);
+          // 描画位置がドーナツの幅の何割の位置になるか
+          float ratio = (radius - innerRadius) / diameter;
+          float opacity = opacity * sin(PI * ratio);
+          // ベースカラー
+          vec4 baseColor = (tColor + vec4(0.0, 0.0, 0.3, 1.0));
+          // 透明度を反映させる
+          gl_FragColor = baseColor * vec4(1.0, 1.0, 1.0, opacity);
+        }
+      `,
+            side: THREE.DoubleSide,
+            blending: THREE.AdditiveBlending,
+            depthTest: false,
+            transparent: true,
+        });
+        return material;
+    }
+
+    /** ランダム係数 */
+    const randomRatio = Math.random() + 1;
+
+    /**
+     * フレーム毎の更新
+     */
+    function updateFlare(flare, index) {
+        var offset = flareOffsetList[index];
+        //   console.log(offset);
+        offset.x += 0.004 * randomRatio;
+        offset.y -= 0.015 * randomRatio;
+    }
+
+    /** フレアの数 */
+    const flareNum = 10;
+    /** フレアリスト */
+    const flareList = [];
+    const flareOffsetList = [];
+
+    /**
+     * コンストラクター
+     */
+    let flares = null;
+
+    function drawFlares(ball) {
+        flares = new THREE.Group();
+        ball.add(flares);
+
+        let perAngle = 360 / flareNum;
+        for (let i = 0; i < flareNum; i++) {
+            let rad = (perAngle * i * Math.PI) / 180;
+            let flareOffset = new THREE.Vector2();
+            let flare = getFlare(flareOffset);
+            flareOffsetList.push(flareOffset);
+            flare.rotation.x = rad;
+            flare.rotation.y = rad;
+            flare.rotation.z = rad / 2;
+            flares.add(flare);
+            flareList.push(flare);
+        }
+    }
+
+    /**
+     * フレーム毎の更新です。
+     */
+    function updateFlares() {
+        flares.position.x = newPosition.x;
+        flares.position.y = newPosition.y;
+        flares.position.z = newPosition.z;
+
+        let magnification = (gauge / 100) * 12;
+        flares.scale.set(magnification, magnification, magnification);
+
+        flareList.forEach((flare, i) => {
+            updateFlare(flare, i);
+        });
+    }
+
+    function addInGrow(ball) {
+        // ジオメトリ
+        const geometry = new THREE.SphereGeometry(2.07, 20, 20);
+
+        // マテリアル
+        const material = new THREE.ShaderMaterial({
+            uniforms: {
+                glowColor: {
+                    value: new THREE.Color(0x96ecff)
+                },
+                viewVector: {
+                    value: camera.position
+                },
+                // glowColor: { type: "c", value: new THREE.Color(0x96ecff) },
+                // viewVector: { type: "v3", value: camera.position },
+            },
+            vertexShader: `
+        uniform vec3 viewVector;    // カメラ位置
+        varying float opacity;      // 透明度
+        void main()
+        {
+          // 頂点法線ベクトル x
+          vec3 nNomal = normalize(normal);
+          vec3 nViewVec = normalize(viewVector);
+
+          // 透明度
+          opacity = dot(nNomal, nViewVec);
+          // 反転
+          opacity = 1.0 - opacity;
+
+          // お決まり
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+            fragmentShader: `
+        uniform vec3 glowColor;
+        varying float opacity;
+        void main()
+        {
+          gl_FragColor = vec4(glowColor, opacity);
+        }
+      `,
+            side: THREE.FrontSide,
+            blending: THREE.AdditiveBlending,
+            transparent: true,
+        });
+
+        // メッシュ
+        const mesh = new THREE.Mesh(geometry, material);
+        ball.add(mesh);
+
+        return mesh;
+    }
+
+    function updateInGrow(inGrow) {
+        inGrow.position.x = newPosition.x;
+        inGrow.position.y = newPosition.y;
+        inGrow.position.z = newPosition.z;
+
+        let magnification = (gauge / 100) * 12;
+        inGrow.scale.set(magnification, magnification, magnification);
     }
 </script>
 
