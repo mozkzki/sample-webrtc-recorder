@@ -282,10 +282,10 @@
 
           // <video>とStremaを接続
           video.srcObject = stream;
-          video.onloadedmetadata = (e) => {
-            video.play();
-            animate();
-          };
+          //   video.onloadedmetadata = (e) => {
+          video.play();
+          animate();
+          //   };
         })
         .catch((err) => {
           console.log(`${err.name}: ${err.message}`);
