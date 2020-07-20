@@ -1,25 +1,43 @@
 <html>
-
-<head>
+  <head>
     <title>handtrack test</title>
     <meta charset="utf-8" />
     <!-- ビューポートの考え方 -->
     <!-- https://qiita.com/ryounagaoka/items/045b2808a5ed43f96607 -->
     <!-- <meta name="viewport" content="width=device-width,initial-scale=1"> -->
-    <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
-</head>
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,user-scalable=no"
+    />
+  </head>
 
-<body>
+  <body>
     <input type="checkbox" id="handTracking" onchange="toggleHandTracking()" />
     Hand Track
-    <input type="checkbox" id="debugHandTracking" onchange="debugHandTracking()" />
+    <input
+      type="checkbox"
+      id="debugHandTracking"
+      onchange="debugHandTracking()"
+    />
     Debug Hand Track
-    <input type="checkbox" id="faceDetection" onchange="toggleFaceDetection()" />
+    <input
+      type="checkbox"
+      id="faceDetection"
+      onchange="toggleFaceDetection()"
+    />
     Face Detection
-    <input type="checkbox" id="debugFaceDetection" onchange="debugFaceDetection()" />
+    <input
+      type="checkbox"
+      id="debugFaceDetection"
+      onchange="debugFaceDetection()"
+    />
     Debug Face Detection
 
-    <button type="button" onclick="playVideo();">Start Video</button>
+    <input type="checkbox" id="useFrontCamera" onchange="useFrontCamera()" />
+    Use Front Camera
+
+    <!-- <button type="button" onclick="playVideo();">Start Video</button> -->
+    <button type="button" onclick="syncCamera();">Start Video</button>
     <!-- <button type="button" onclick="createBall();">Create Ball</button> -->
     <button type="button" onclick="createKidan();">Create Kidan</button>
     <button type="button" onclick="removeBall();">Remove Ball</button>
@@ -29,52 +47,66 @@
     <a href="#" id="downloadlink">Download</a>
     <div id="message">loading model...</div>
     <div id="main" style="position: relative;">
-        <video id="local_video" playsinline style="display: none; position: absolute;"></video>
+      <video
+        id="local_video"
+        playsinline
+        style="display: none; position: absolute;"
+      ></video>
 
-        <canvas id="three_canvas" style="transform: scaleX(-1); display: none; position: absolute;"></canvas>
+      <canvas
+        id="three_canvas"
+        style="transform: scaleX(-1); display: none; position: absolute;"
+      ></canvas>
 
-        <canvas id="merge_canvas" style="transform: scaleX(-1); position: absolute;"></canvas>
+      <canvas
+        id="merge_canvas"
+        style="transform: scaleX(-1); position: absolute;"
+      ></canvas>
 
-        <!-- 顔認識デバッグ用 -->
-        <!-- <canvas id="face_canvas" onclick="offset(event)" style="
+      <canvas id="scouter_canvas" style="position: absolute;"></canvas>
+
+      <!-- 顔認識デバッグ用 -->
+      <!-- <canvas id="face_canvas" onclick="offset(event)" style="
           transform: scaleX(-1);
           position: absolute;
         "></canvas> -->
     </div>
-</body>
+  </body>
 
-<!-- handtrack.js -->
-<script src="https://cdn.jsdelivr.net/npm/handtrackjs@0.0.13/dist/handtrack.min.js"></script>
-<!-- three.js -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/99/three.min.js"></script>
-<!-- clmtrackr/ライブラリ -->
-<script src="./js/lib/clmtrackr.js"></script>
-<script src="./js/lib/emotion_classifier.js"></script>
-<script src="./js/lib/emotionmodel.js"></script>
-<!-- clmtrackr/顔のモデル -->
-<script src="./js/lib/model_pca_20_svm.js"></script>
+  <!-- handtrack.js -->
+  <script src="https://cdn.jsdelivr.net/npm/handtrackjs@0.0.13/dist/handtrack.min.js"></script>
+  <!-- three.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/99/three.min.js"></script>
+  <!-- clmtrackr/ライブラリ -->
+  <script src="./js/lib/clmtrackr.js"></script>
+  <script src="./js/lib/emotion_classifier.js"></script>
+  <script src="./js/lib/emotionmodel.js"></script>
+  <!-- clmtrackr/顔のモデル -->
+  <script src="./js/lib/model_pca_20_svm.js"></script>
 
-<script>
+  <script>
     const main = document.getElementById("main");
     const localVideo = document.getElementById("local_video");
     const merge_canvas = document.getElementById("merge_canvas");
+    const scouter_canvas = document.getElementById("scouter_canvas");
 
     window.addEventListener("load", init);
+    window.addEventListener("resize", setSize);
 
     const updatePosition = (event) => {
-        const rect = event.currentTarget.getBoundingClientRect();
-        const targetX = event.clientX - rect.left;
-        const targetY = event.clientY - rect.top;
+      const rect = event.currentTarget.getBoundingClientRect();
+      const targetX = event.clientX - rect.left;
+      const targetY = event.clientY - rect.top;
 
-        //   console.log("mouse:(" + e.clientX + "," + e.clientY + ")");
-        gBeforeX = gX;
-        gBeforeY = gY;
-        gX = targetX;
-        gY = targetY;
-    }
+      //   console.log("mouse:(" + e.clientX + "," + e.clientY + ")");
+      gBeforeX = gX;
+      gBeforeY = gY;
+      gX = targetX;
+      gY = targetY;
+    };
 
-    const onMouseMove = event => updatePosition(event)
-    main.addEventListener('mousemove', onMouseMove)
+    const onMouseMove = (event) => updatePosition(event);
+    main.addEventListener("mousemove", onMouseMove);
 
     let hand_canvas = null;
     let isHandTracking = false;
@@ -89,96 +121,108 @@
     let frame = 0;
 
     function toggleHandTracking() {
-        if (document.getElementById("handTracking").checked) {
-            isHandTracking = true;
-            loadHandtrack();
-        } else {
-            isHandTracking = false;
-            handTrackModel = null;
-            document.getElementById("debugHandTracking").checked = false;
-            debugHandTracking();
-        }
+      if (document.getElementById("handTracking").checked) {
+        isHandTracking = true;
+        loadHandtrack();
+      } else {
+        isHandTracking = false;
+        handTrackModel = null;
+        document.getElementById("debugHandTracking").checked = false;
+        debugHandTracking();
+      }
     }
 
     function debugHandTracking() {
-        if (document.getElementById("debugHandTracking").checked) {
-            // チェックON
-            hand_canvas = document.createElement("canvas");
-            hand_canvas.id = "hand_canvas";
-            hand_canvas.width = window.innerWidth;
-            hand_canvas.height = window.innerHeight;
+      if (document.getElementById("debugHandTracking").checked) {
+        // チェックON
+        hand_canvas = document.createElement("canvas");
+        hand_canvas.id = "hand_canvas";
+        hand_canvas.width = window.innerWidth;
+        hand_canvas.height = window.innerHeight;
 
-            var main = document.getElementById("main");
-            document.body.insertBefore(hand_canvas, main);
+        var main = document.getElementById("main");
+        document.body.insertBefore(hand_canvas, main);
 
-            isDebugHandTrack = true;
-        } else {
-            // チェックOFF
-            var canvas = document.getElementById("hand_canvas");
-            document.body.removeChild(canvas);
-            hand_canvas = null;
-            isDebugHandTrack = false;
-        }
+        isDebugHandTrack = true;
+      } else {
+        // チェックOFF
+        var canvas = document.getElementById("hand_canvas");
+        document.body.removeChild(canvas);
+        hand_canvas = null;
+        isDebugHandTrack = false;
+      }
     }
 
     function toggleFaceDetection() {
-        if (document.getElementById("faceDetection").checked) {
-            isFaceDetection = true;
-        } else {
-            isFaceDetection = false;
-            document.getElementById("debugFaceDetection").checked = false;
-            debugFaceDetection();
-        }
+      if (document.getElementById("faceDetection").checked) {
+        isFaceDetection = true;
+      } else {
+        isFaceDetection = false;
+        document.getElementById("debugFaceDetection").checked = false;
+        debugFaceDetection();
+      }
     }
 
     function debugFaceDetection() {
-        var main = document.getElementById("main");
-        if (document.getElementById("debugFaceDetection").checked) {
-            // チェックON
-            face_canvas = document.createElement("canvas");
-            face_canvas.id = "face_canvas";
-            face_canvas.width = window.innerWidth;
-            face_canvas.height = window.innerHeight;
-            face_canvas.onclick = "offset(event)";
-            face_canvas.style.transform = "scaleX(-1)";
-            face_canvas.style.position = "absolute";
+      var main = document.getElementById("main");
+      if (document.getElementById("debugFaceDetection").checked) {
+        // チェックON
+        face_canvas = document.createElement("canvas");
+        face_canvas.id = "face_canvas";
+        face_canvas.width = window.innerWidth;
+        face_canvas.height = window.innerHeight;
+        face_canvas.onclick = "offset(event)";
+        face_canvas.style.transform = "scaleX(-1)";
+        face_canvas.style.position = "absolute";
 
-            main.appendChild(face_canvas);
+        main.appendChild(face_canvas);
 
-            isDebugFaceDetection = true;
-        } else {
-            // チェックOFF
-            var canvas = document.getElementById("face_canvas");
-            main.removeChild(canvas);
-            face_canvas = null;
-            isDebugFaceDetection = false;
-        }
+        isDebugFaceDetection = true;
+      } else {
+        // チェックOFF
+        var canvas = document.getElementById("face_canvas");
+        main.removeChild(canvas);
+        face_canvas = null;
+        isDebugFaceDetection = false;
+      }
+    }
+
+    function useFrontCamera() {
+      if (document.getElementById("useFrontCamera").checked) {
+        // チェックON
+        useFront = true;
+      } else {
+        // チェックOFF
+        useFront = false;
+      }
     }
 
     function init() {
-        setSize();
-        startVideo();
-        init3DField();
+      setSize();
+      //   startVideo();
+      init3DField();
     }
 
     function setSize() {
-        localVideo.width = window.innerWidth;
-        localVideo.height = window.innerHeight;
-        merge_canvas.width = window.innerWidth;
-        merge_canvas.height = window.innerHeight;
+      localVideo.width = window.innerWidth;
+      localVideo.height = (window.innerWidth * 9) / 16;
+      merge_canvas.width = window.innerWidth;
+      merge_canvas.height = (window.innerWidth * 9) / 16;
+      scouter_canvas.width = window.innerWidth;
+      scouter_canvas.height = (window.innerWidth * 9) / 16;
     }
 
     // // getUserMediaでカメラ、マイクにアクセス
     async function startVideo() {
-        try {
-            localStream = await navigator.mediaDevices.getUserMedia({
-                video: true,
-                audio: false,
-            });
-            // playVideo(localVideo, localStream);
-        } catch (err) {
-            console.error("mediaDevice.getUserMedia() error:", err);
-        }
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false,
+        });
+        // playVideo(localVideo, localStream);
+      } catch (err) {
+        console.error("mediaDevice.getUserMedia() error:", err);
+      }
     }
 
     // // Videoの再生を開始する
@@ -191,177 +235,226 @@
     //   }
     // }
     function playVideo() {
-        // playVideo(localVideo, localStream);
-        localVideo.srcObject = localStream;
-        try {
-            localVideo.play();
+      // playVideo(localVideo, localStream);
+      localVideo.srcObject = localStream;
+      try {
+        localVideo.play();
+        animate();
+      } catch (error) {
+        console.log("error auto play:" + error);
+      }
+    }
+
+    let useFront = true; // フロントカメラ:true, バックカメラ:false
+    // カメラのデフォルト設定
+    var CONSTRAINTS = {
+      audio: false,
+      video: {
+        facingMode: null, // どのカメラを利用するか
+
+        // facingModeには最終的に以下のいずれかの値を入れる
+        //   facingMode: "user"                    // フロントカメラを利用する
+        //   facingMode: { exact: "environment" }  // リアカメラを利用する
+      },
+    };
+
+    function syncCamera() {
+      const video = localVideo;
+      const is_front = useFront;
+
+      // 前後カメラの設定
+      CONSTRAINTS.video.facingMode = is_front
+        ? "user"
+        : { exact: "environment" };
+
+      // すでにカメラと接続していたら停止
+      if (localStream !== null) {
+        localStream.getVideoTracks().forEach((camera) => {
+          camera.stop();
+        });
+      }
+
+      // カメラと接続する
+      navigator.mediaDevices
+        .getUserMedia(CONSTRAINTS)
+        .then((stream) => {
+          localStream = stream; // 前後の切り替え用に保持
+
+          // <video>とStremaを接続
+          video.srcObject = stream;
+          video.onloadedmetadata = (e) => {
+            video.play();
             animate();
-        } catch (error) {
-            console.log("error auto play:" + error);
-        }
+          };
+        })
+        .catch((err) => {
+          console.log(`${err.name}: ${err.message}`);
+          alert("カメラとの接続時にエラーが発生しました");
+        });
     }
 
     function offset(e) {
-        var rect = e.target.getBoundingClientRect();
+      var rect = e.target.getBoundingClientRect();
 
-        // スクリーン上のマウス位置を取得する
-        var mouseX = e.clientX - rect.left;
-        var mouseY = e.clientY - rect.top;
+      // スクリーン上のマウス位置を取得する
+      var mouseX = e.clientX - rect.left;
+      var mouseY = e.clientY - rect.top;
 
-        gOffsetX = -1 * (gX - mouseX);
-        gOffsetY = -1 * (gY - mouseY);
+      gOffsetX = -1 * (gX - mouseX);
+      gOffsetY = -1 * (gY - mouseY);
     }
 
     function resetOffset() {
-        gOffsetX = 0;
-        gOffsetY = 0;
+      gOffsetX = 0;
+      gOffsetY = 0;
     }
 
     function loadHandtrack() {
-        const options = {
-            flipHorizontal: true, // flip e.g for video
-            maxNumBoxes: 1, // maximum number of boxes to detect
-            iouThreshold: 0.5, // ioU threshold for non-max suppression
-            scoreThreshold: 0.7, // confidence threshold for predictions.
-        };
-        handTrack.load(options).then((l_model) => {
-            handTrackModel = l_model;
-            document.getElementById("message").innerText = "loaded!";
+      const options = {
+        flipHorizontal: true, // flip e.g for video
+        maxNumBoxes: 1, // maximum number of boxes to detect
+        iouThreshold: 0.5, // ioU threshold for non-max suppression
+        scoreThreshold: 0.7, // confidence threshold for predictions.
+      };
+      handTrack.load(options).then((l_model) => {
+        handTrackModel = l_model;
+        document.getElementById("message").innerText = "loaded!";
 
-            runHandDetection();
-        });
+        runHandDetection();
+      });
     }
 
     function runHandDetection() {
-        handTrackModel.detect(localVideo).then(predictions => {
-            detectHand(predictions);
+      handTrackModel.detect(localVideo).then((predictions) => {
+        detectHand(predictions);
 
-            // [デバッグ用] 手認識結果を表示する
-            // 重ねると後ろの別canvasが見えなくなるので上部に置いてる
-            if (isDebugHandTrack) {
-                const context = hand_canvas.getContext("2d");
-                handTrackModel.renderPredictions(
-                    predictions,
-                    hand_canvas,
-                    context,
-                    localVideo
-                );
-            }
+        // [デバッグ用] 手認識結果を表示する
+        // 重ねると後ろの別canvasが見えなくなるので上部に置いてる
+        if (isDebugHandTrack) {
+          const context = hand_canvas.getContext("2d");
+          handTrackModel.renderPredictions(
+            predictions,
+            hand_canvas,
+            context,
+            localVideo
+          );
+        }
 
-            requestAnimationFrame(runHandDetection);
-        });
+        requestAnimationFrame(runHandDetection);
+      });
     }
 
     let removeCounter = 0;
 
     function detectHand(predictions) {
-        if (removeCounter > 5) {
-            // removeBall();
+      if (removeCounter > 5) {
+        // removeBall();
+      }
+
+      if (predictions[0] == undefined) {
+        return;
+      }
+
+      if (predictions[0] == undefined && predictions[1] == undefined) {
+        removeCounter++;
+      }
+
+      if (predictions[0]) {
+        var bbox = predictions[0].bbox;
+
+        var next_x = bbox[0] + bbox[2] / 2;
+        var next_y = bbox[1] + bbox[3] / 2;
+
+        gBeforeX = gX;
+        gBeforeY = gY;
+        gX = next_x;
+        gY = next_y;
+
+        //   console.clear();
+        console.log("(x,y)=(" + gX + "," + gY + ")");
+
+        // 気弾は激しい移動をすると消えてしまう
+        //   var idouX = Math.abs(gBeforeX - gX);
+        //   var idouY = Math.abs(gBeforeY - gY);
+        //   if (idouX > 120 || idouY > 120) {
+        //     removeCounter++;
+        //   }
+
+        // 手を大きくするとゲージアップ
+        var width = bbox[2];
+        var height = bbox[3];
+        if (width > 250 && height > 270) {
+          gauge += 1;
         }
-
-        if (predictions[0] == undefined) {
-            return;
+        // 手を小さくするとゲージダウン
+        if (width < 200 || height < 210) {
+          if (gauge > 1) {
+            gauge -= 1;
+          }
         }
-
-        if (predictions[0] == undefined && predictions[1] == undefined) {
-            removeCounter++;
-        }
-
-        if (predictions[0]) {
-            var bbox = predictions[0].bbox;
-
-            var next_x = bbox[0] + bbox[2] / 2;
-            var next_y = bbox[1] + bbox[3] / 2;
-
-            gBeforeX = gX;
-            gBeforeY = gY;
-            gX = next_x;
-            gY = next_y;
-
-            //   console.clear();
-            console.log("(x,y)=(" + gX + "," + gY + ")");
-
-            // 気弾は激しい移動をすると消えてしまう
-            //   var idouX = Math.abs(gBeforeX - gX);
-            //   var idouY = Math.abs(gBeforeY - gY);
-            //   if (idouX > 120 || idouY > 120) {
-            //     removeCounter++;
-            //   }
-
-            // 手を大きくするとゲージアップ
-            var width = bbox[2];
-            var height = bbox[3];
-            if (width > 250 && height > 270) {
-                gauge += 1;
-            }
-            // 手を小さくするとゲージダウン
-            if (width < 200 || height < 210) {
-                if (gauge > 1) {
-                    gauge -= 1;
-                }
-            }
-        } else {
-            //   if (gBall != null) {
-            //     removeBall();
-            //   }
-        }
+      } else {
+        //   if (gBall != null) {
+        //     removeBall();
+        //   }
+      }
     }
 
     function animate() {
-        requestAnimationFrame(animate);
+      requestAnimationFrame(animate);
 
-        frame++;
+      frame++;
 
-        // FPSを30に
-        if (frame % 2) {
-            return;
+      // FPSを30に
+      if (frame % 2) {
+        return;
+      }
+
+      const merge_context = merge_canvas.getContext("2d");
+
+      // 描画をクリア
+      merge_context.clearRect(0, 0, merge_canvas.width, merge_canvas.height);
+
+      // videoをこのcanvasにトレース
+      merge_context.drawImage(
+        localVideo,
+        0,
+        0,
+        merge_canvas.width,
+        merge_canvas.height
+      );
+
+      // drawBall();
+      updateKidan();
+      updateScouter();
+
+      // Three.jsをレンダリング
+      renderer.render(scene, camera);
+
+      // Three.jsのcanvasをこのcanvasにトレース
+      merge_context.drawImage(
+        three_canvas,
+        0,
+        0,
+        merge_canvas.width,
+        merge_canvas.height
+      );
+
+      //-------------------------------------
+      // 顔認識関連
+      //-------------------------------------
+      // 顔認識を実施するなら
+      if (isFaceDetection) {
+        if (faceTracker == null) {
+          createFaceTracker();
         }
 
-        const merge_context = merge_canvas.getContext("2d");
+        detectFace();
 
-        // 描画をクリア
-        merge_context.clearRect(0, 0, merge_canvas.width, merge_canvas.height);
-
-        // videoをこのcanvasにトレース
-        merge_context.drawImage(
-            localVideo,
-            0,
-            0,
-            merge_canvas.width,
-            merge_canvas.height
-        );
-
-        // drawBall();
-        updateKidan();
-
-        // Three.jsをレンダリング
-        renderer.render(scene, camera);
-
-        // Three.jsのcanvasをこのcanvasにトレース
-        merge_context.drawImage(
-            three_canvas,
-            0,
-            0,
-            merge_canvas.width,
-            merge_canvas.height
-        );
-
-        //-------------------------------------
-        // 顔認識関連
-        //-------------------------------------
-        // 顔認識を実施するなら
-        if (isFaceDetection) {
-            if (faceTracker == null) {
-                createFaceTracker();
-            }
-
-            detectFace();
-
-            // [デバッグ用] 顔認識結果を表示する
-            if (isDebugFaceDetection) {
-                drawFace(localVideo, face_canvas);
-            }
+        // [デバッグ用] 顔認識結果を表示する
+        if (isDebugFaceDetection) {
+          drawFace(localVideo, face_canvas);
         }
+      }
     }
 
     let renderer;
@@ -388,230 +481,230 @@
     let three_canvas = document.querySelector("#three_canvas");
 
     function init3DField() {
-        // レンダラーを作成
-        renderer = new THREE.WebGLRenderer({
-            canvas: three_canvas,
-            alpha: true,
-            // 遅くなる
-            antialias: true,
-        });
-        renderer.setPixelRatio(window.devicePixelRatio);
-        //   renderer.setPixelRatio(1);
-        renderer.setSize(g_width, g_height);
-        // 背景に透明を指定
-        renderer.setClearColor(0x000000, 0);
-        // レンダラーの auto clear をfalseにする
-        //   renderer.autoClear = false;
+      // レンダラーを作成
+      renderer = new THREE.WebGLRenderer({
+        canvas: three_canvas,
+        alpha: true,
+        // 遅くなる
+        antialias: true,
+      });
+      renderer.setPixelRatio(window.devicePixelRatio);
+      //   renderer.setPixelRatio(1);
+      renderer.setSize(g_width, g_height);
+      // 背景に透明を指定
+      renderer.setClearColor(0x000000, 0);
+      // レンダラーの auto clear をfalseにする
+      //   renderer.autoClear = false;
 
-        // カメラを作成
-        camera = new THREE.PerspectiveCamera(45, g_width / g_height);
-        // camera = new THREE.PerspectiveCamera(45, g_width / g_height, 1, 10000);
-        camera.position.set(0, 0, +1000);
+      // カメラを作成
+      camera = new THREE.PerspectiveCamera(45, g_width / g_height);
+      // camera = new THREE.PerspectiveCamera(45, g_width / g_height, 1, 10000);
+      camera.position.set(0, 0, +1000);
 
-        // シーンを作成
-        scene = new THREE.Scene();
+      // シーンを作成
+      scene = new THREE.Scene();
 
-        // 平行光源
-        const directionalLight = new THREE.DirectionalLight(0xffffff);
-        directionalLight.position.set(500, 10, 500);
-        // シーンに追加
-        scene.add(directionalLight);
+      // 平行光源
+      const directionalLight = new THREE.DirectionalLight(0xffffff);
+      directionalLight.position.set(500, 10, 500);
+      // シーンに追加
+      scene.add(directionalLight);
 
-        // 座標検知用の透明な壁を作成
-        createWall();
+      // 座標検知用の透明な壁を作成
+      createWall();
     }
 
     function getNextPosition(x1, y1, x2, y2) {
-        if (x1 == x2 || y1 == y2) {
-            return new THREE.Vector3(x1, y1, 0);
+      if (x1 == x2 || y1 == y2) {
+        return new THREE.Vector3(x1, y1, 0);
+      }
+
+      // ２点（x1, y1）→（x2, y2）を通る直線の方程式
+      //
+      // y = ax + b
+      //
+      // a = (y2-y1) / (x2-x1)
+      // b = ((x2 * y1) - (x1 * y2)) / (x2-x1)
+
+      var a = (y2 - y1) / (x2 - x1);
+      var b = (x2 * y1 - x1 * y2) / (x2 - x1);
+
+      var direction_x = x2 - x1;
+      var direction_y = y2 - y1;
+      var idou_x = Math.abs(direction_x);
+      var idou_y = Math.abs(direction_y);
+
+      var new_x = 0;
+      var new_y = 0;
+
+      var delta = 1;
+
+      if (idou_x > idou_y) {
+        // X方向への移動量のほうが大きい
+        if (direction_x < 0) {
+          // 負の方向への移動
+          delta = -1 * delta;
         }
-
-        // ２点（x1, y1）→（x2, y2）を通る直線の方程式
-        //
-        // y = ax + b
-        //
-        // a = (y2-y1) / (x2-x1)
-        // b = ((x2 * y1) - (x1 * y2)) / (x2-x1)
-
-        var a = (y2 - y1) / (x2 - x1);
-        var b = (x2 * y1 - x1 * y2) / (x2 - x1);
-
-        var direction_x = x2 - x1;
-        var direction_y = y2 - y1;
-        var idou_x = Math.abs(direction_x);
-        var idou_y = Math.abs(direction_y);
-
-        var new_x = 0;
-        var new_y = 0;
-
-        var delta = 1;
-
-        if (idou_x > idou_y) {
-            // X方向への移動量のほうが大きい
-            if (direction_x < 0) {
-                // 負の方向への移動
-                delta = -1 * delta;
-            }
-            new_x = x1 + delta;
-            new_y = a * new_x + b;
-        } else {
-            // Y方向への移動量のほうが大きい
-            if (direction_y < 0) {
-                // 負の方向への移動
-                delta = -1 * delta;
-            }
-            new_y = y1 + delta;
-            new_x = (new_y - b) / a;
+        new_x = x1 + delta;
+        new_y = a * new_x + b;
+      } else {
+        // Y方向への移動量のほうが大きい
+        if (direction_y < 0) {
+          // 負の方向への移動
+          delta = -1 * delta;
         }
+        new_y = y1 + delta;
+        new_x = (new_y - b) / a;
+      }
 
-        return new THREE.Vector3(new_x, new_y, 0);
+      return new THREE.Vector3(new_x, new_y, 0);
     }
 
     function checkGauge() {
-        // gauge: 1 - 100
+      // gauge: 1 - 100
 
-        magnification = (gauge / 100) * 12;
+      magnification = (gauge / 100) * 12;
     }
 
     function removeBall() {
-        console.log("remove!!!!!!!!!!!!!!!!!");
-        if (gBall) {
-            gBall.alive = false;
-            scene.remove(gBall);
-            gBall.geometry.dispose();
-            gBall.material.dispose();
-            gBall = null;
-        }
-        magnification = 1;
-        g_dist = 0;
-        gOffsetX = 0;
-        gOffsetY = 0;
-        removeCounter = 0;
+      console.log("remove!!!!!!!!!!!!!!!!!");
+      if (gBall) {
+        gBall.alive = false;
+        scene.remove(gBall);
+        gBall.geometry.dispose();
+        gBall.material.dispose();
+        gBall = null;
+      }
+      magnification = 1;
+      g_dist = 0;
+      gOffsetX = 0;
+      gOffsetY = 0;
+      removeCounter = 0;
     }
 
     function createBall() {
-        const geometry = new THREE.SphereGeometry(25, 32, 32);
-        const material = new THREE.MeshPhongMaterial({
-            color: 0x6699ff,
-        });
+      const geometry = new THREE.SphereGeometry(25, 32, 32);
+      const material = new THREE.MeshPhongMaterial({
+        color: 0x6699ff,
+      });
 
-        // メッシュを作成
-        const ball = new THREE.Mesh(geometry, material);
+      // メッシュを作成
+      const ball = new THREE.Mesh(geometry, material);
 
-        // ball.alive = true;
-        // setTimeout(function () {
-        //     // 削除処理
-        //     console.log("remove!!!!!!!!!!!!!!!!!");
-        //     ball.alive = false;
-        //     scene.remove(ball);
-        //     ball.geometry.dispose();
-        //     ball.material.dispose();
-        // }, 3000);
+      // ball.alive = true;
+      // setTimeout(function () {
+      //     // 削除処理
+      //     console.log("remove!!!!!!!!!!!!!!!!!");
+      //     ball.alive = false;
+      //     scene.remove(ball);
+      //     ball.geometry.dispose();
+      //     ball.material.dispose();
+      // }, 3000);
 
-        // setTimeout(function () {
-        //     isShooting = false;
-        // }, 500);
+      // setTimeout(function () {
+      //     isShooting = false;
+      // }, 500);
 
-        // シーンに追加
-        scene.add(ball);
+      // シーンに追加
+      scene.add(ball);
 
-        gBall = ball;
+      gBall = ball;
     }
 
     function drawBall() {
-        if (gBall == null) {
-            return;
-        }
+      if (gBall == null) {
+        return;
+      }
 
-        // ゲージの値をチェックして各種属性値を調整
-        checkGauge();
+      // ゲージの値をチェックして各種属性値を調整
+      checkGauge();
 
-        console.log("before point(x,y): (" + gBeforeX + "," + gBeforeY + ")");
-        console.log("       point(x,y): (" + gX + "," + gY + ")");
+      console.log("before point(x,y): (" + gBeforeX + "," + gBeforeY + ")");
+      console.log("       point(x,y): (" + gX + "," + gY + ")");
 
-        var nextPosition = getNextPosition(gBeforeX, gBeforeY, gX, gY);
+      var nextPosition = getNextPosition(gBeforeX, gBeforeY, gX, gY);
 
-        // グローバル座標に変換
-        const start = getStartPosition(nextPosition.x, nextPosition.y);
+      // グローバル座標に変換
+      const start = getStartPosition(nextPosition.x, nextPosition.y);
 
-        // 始点 (zは衝突検知用の壁と同じにする必要がある)
-        const v1 = new THREE.Vector3(start.x, start.y, 0);
+      // 始点 (zは衝突検知用の壁と同じにする必要がある)
+      const v1 = new THREE.Vector3(start.x, start.y, 0);
 
-        gBall.position.x = v1.x;
-        gBall.position.y = v1.y;
-        gBall.position.z = v1.z;
+      gBall.position.x = v1.x;
+      gBall.position.y = v1.y;
+      gBall.position.z = v1.z;
 
-        // 微妙に拡縮させる処理
-        // if (magnification > 2) {
-        //   if (g_dist > 3) {
-        //     g_dist -= 0.08;
-        //   } else {
-        //     g_dist += 0.08;
-        //   }
-        // }
+      // 微妙に拡縮させる処理
+      // if (magnification > 2) {
+      //   if (g_dist > 3) {
+      //     g_dist -= 0.08;
+      //   } else {
+      //     g_dist += 0.08;
+      //   }
+      // }
 
-        gBall.scale.set(
-            magnification + g_dist,
-            magnification + g_dist,
-            magnification + g_dist
-        );
+      gBall.scale.set(
+        magnification + g_dist,
+        magnification + g_dist,
+        magnification + g_dist
+      );
     }
 
     function getStartPosition(target_x, target_y) {
-        // 取得したスクリーン座標を-1〜1に正規化する（WebGLは-1〜1で座標が表現される）
-        var mouseX = (target_x / g_width) * 2 - 1;
-        var mouseY = -(target_y / g_height) * 2 + 1;
+      // 取得したスクリーン座標を-1〜1に正規化する（WebGLは-1〜1で座標が表現される）
+      var mouseX = (target_x / g_width) * 2 - 1;
+      var mouseY = -(target_y / g_height) * 2 + 1;
 
-        // マウスの位置ベクトル
-        var pos = new THREE.Vector3(mouseX, mouseY, 1);
+      // マウスの位置ベクトル
+      var pos = new THREE.Vector3(mouseX, mouseY, 1);
 
-        // pos はスクリーン座標系なので、オブジェクトの座標系に変換
-        // オブジェクト座標系は今表示しているカメラからの視点なので、第二引数にカメラオブジェクトを渡す
-        pos.unproject(camera);
+      // pos はスクリーン座標系なので、オブジェクトの座標系に変換
+      // オブジェクト座標系は今表示しているカメラからの視点なので、第二引数にカメラオブジェクトを渡す
+      pos.unproject(camera);
 
-        //   console.log("origin(" + target_x + "," + target_y + ")");
-        //   console.log("screen(" + mouseX + "," + mouseY + "," + 1 + ")");
-        //   console.log("world (" + pos.x + "," + pos.y + "," + pos.z + ")");
+      //   console.log("origin(" + target_x + "," + target_y + ")");
+      //   console.log("screen(" + mouseX + "," + mouseY + "," + 1 + ")");
+      //   console.log("world (" + pos.x + "," + pos.y + "," + pos.z + ")");
 
-        // 始点、向きベクトルを渡してレイを作成
-        var ray = new THREE.Raycaster(
-            camera.position,
-            pos.sub(camera.position).normalize()
-        );
+      // 始点、向きベクトルを渡してレイを作成
+      var ray = new THREE.Raycaster(
+        camera.position,
+        pos.sub(camera.position).normalize()
+      );
 
-        // 交差判定
-        // 引数は取得対象となるMeshを渡す
-        var objs = ray.intersectObject(wall);
+      // 交差判定
+      // 引数は取得対象となるMeshを渡す
+      var objs = ray.intersectObject(wall);
 
-        var pos_new = new THREE.Vector3(0, 0, 0);
-        if (objs.length > 0) {
-            // 交差していたらobjsが1以上になる
-            pos_new.x = -1 * objs[0].point.x; // 反転
-            pos_new.y = objs[0].point.y;
-            pos_new.z = pos.z;
-        }
+      var pos_new = new THREE.Vector3(0, 0, 0);
+      if (objs.length > 0) {
+        // 交差していたらobjsが1以上になる
+        pos_new.x = -1 * objs[0].point.x; // 反転
+        pos_new.y = objs[0].point.y;
+        pos_new.z = pos.z;
+      }
 
-        //   console.log(
-        //     "start (" + pos_new.x + "," + pos_new.y + "," + pos_new.z + ")"
-        //   );
+      //   console.log(
+      //     "start (" + pos_new.x + "," + pos_new.y + "," + pos_new.z + ")"
+      //   );
 
-        return pos_new;
+      return pos_new;
     }
 
     function createWall() {
-        const geometry = new THREE.BoxBufferGeometry(65535, 65535, 1);
-        const material = new THREE.MeshStandardMaterial({
-            color: 0x000000,
-            // transparent: true,
-            opacity: 0.0,
-        });
+      const geometry = new THREE.BoxBufferGeometry(65535, 65535, 1);
+      const material = new THREE.MeshStandardMaterial({
+        color: 0x000000,
+        // transparent: true,
+        opacity: 0.0,
+      });
 
-        wall = new THREE.Mesh(geometry, material);
-        scene.add(wall);
-        wall.position.set(0, 0, 0);
+      wall = new THREE.Mesh(geometry, material);
+      scene.add(wall);
+      wall.position.set(0, 0, 0);
 
-        // レンダリング
-        renderer.render(scene, camera);
+      // レンダリング
+      renderer.render(scene, camera);
     }
 
     //------------------------------
@@ -620,42 +713,86 @@
     let faceTracker = null;
 
     function createFaceTracker() {
-        // トラッカーオブジェクト
-        faceTracker = new clm.tracker({
-            useWebGL: true,
-        });
-        faceTracker.init(pModel);
-        faceTracker.start(localVideo);
+      // トラッカーオブジェクト
+      faceTracker = new clm.tracker({
+        useWebGL: true,
+      });
+      faceTracker.init(pModel);
+      faceTracker.start(localVideo);
     }
 
+    let face_mouse_distance = 0;
+    let face_width = 0;
+    let face_mayu_width = 0;
+    let face_ago_width = 0;
+    let face_mouce_width = 0;
+    let face_nose_height = 0;
+    let face_position_x = 0;
+    let face_position_y = 0;
+
     function detectFace() {
-        const positions = faceTracker.getCurrentPosition();
-        if (positions) {
-            if (positions[60] && positions[57]) {
-                var mouse_upper = positions[60];
-                var mouse_under = positions[57];
-                var mouse_distance = mouse_under[1] - mouse_upper[1];
-                if (mouse_distance > 15) {
-                    if (gauge < 100) {
-                        gauge += 1;
-                    }
-                    console.log("shooooooooooooooooooooooooooot!");
-                }
-            }
+      const positions = faceTracker.getCurrentPosition();
+      if (positions) {
+        // 顔の中心座標
+        if (positions[41]) {
+          face_position_x = positions[41][0];
+          face_position_y = positions[41][1];
         }
+        if (positions[60] && positions[57]) {
+          var mouse_upper = positions[60];
+          var mouse_under = positions[57];
+          face_mouse_distance = mouse_under[1] - mouse_upper[1];
+          if (face_mouse_distance > 15) {
+            if (gauge < 100) {
+              gauge += 1;
+            }
+            console.log("shooooooooooooooooooooooooooot!");
+          }
+        }
+        // 眉毛の幅
+        if (positions[19] && positions[15]) {
+          var left_mayu = positions[19];
+          var right_mayu = positions[15];
+          face_mayu_width = Math.abs(left_mayu[0] - right_mayu[0]);
+        }
+        // 顎の幅
+        if (positions[4] && positions[10]) {
+          var left_ago = positions[4];
+          var right_ago = positions[10];
+          face_ago_width = Math.abs(left_ago[1] - right_ago[1]);
+        }
+        // 顔の幅
+        if (positions[0] && positions[14]) {
+          var left_face = positions[0];
+          var right_face = positions[14];
+          face_width = Math.abs(left_face[0] - right_face[0]);
+        }
+        // 口の幅
+        if (positions[44] && positions[50]) {
+          var left_mouce = positions[44];
+          var right_mouce = positions[50];
+          face_mouce_width = Math.abs(left_mouce[0] - right_mouce[0]);
+        }
+        // 鼻の長さ
+        if (positions[33] && positions[62]) {
+          var upper_nose = positions[33];
+          var lower_nose = positions[62];
+          face_nose_height = Math.abs(upper_nose[1] - lower_nose[1]);
+        }
+      }
     }
 
     function drawFace(video, canvas) {
-        const context = canvas.getContext("2d");
+      const context = canvas.getContext("2d");
 
-        // 描画をクリア
-        context.clearRect(0, 0, canvas.width, canvas.height);
+      // 描画をクリア
+      context.clearRect(0, 0, canvas.width, canvas.height);
 
-        const positions = faceTracker.getCurrentPosition();
-        if (positions) {
-            // 顔のパーツの現在位置が存在したら描画
-            faceTracker.draw(canvas);
-        }
+      const positions = faceTracker.getCurrentPosition();
+      if (positions) {
+        // 顔のパーツの現在位置が存在したら描画
+        faceTracker.draw(canvas);
+      }
     }
 
     //------------------------------
@@ -667,26 +804,26 @@
     var anchor = document.getElementById("downloadlink");
 
     function startRecording() {
-        let localStream = null;
-        const canvasToCapture = document.getElementById("merge_canvas");
+      let localStream = null;
+      const canvasToCapture = document.getElementById("merge_canvas");
 
-        if (canvasToCapture) {
-            localStream = canvasToCapture.captureStream(30); // 30 fps
-            // localVideo.srcObject = localStream;
-        }
+      if (canvasToCapture) {
+        localStream = canvasToCapture.captureStream(30); // 30 fps
+        // localVideo.srcObject = localStream;
+      }
 
-        // チェック
-        if (!localStream) {
-            console.warn("stream not ready");
-            return;
-        }
-        if (recorder) {
-            console.warn("already recording");
-            return;
-        }
+      // チェック
+      if (!localStream) {
+        console.warn("stream not ready");
+        return;
+      }
+      if (recorder) {
+        console.warn("already recording");
+        return;
+      }
 
-        recorder = new MediaRecorder(localStream);
-        /* -- option を使う場合のサンプル --
+      recorder = new MediaRecorder(localStream);
+      /* -- option を使う場合のサンプル --
                       var options = {
                         audioBitsPerSecond : 64000,
                         videoBitsPerSecond : 512000,
@@ -695,57 +832,57 @@
                       recorder = new MediaRecorder(localStream, options);
                       -- option を使う場合のサンプル ---*/
 
-        chunks = []; // 格納場所をクリア
+      chunks = []; // 格納場所をクリア
 
-        // 録画進行中に、インターバルに合わせて発生するイベント
-        recorder.ondataavailable = function (evt) {
-            console.log(
-                "data available: evt.data.type=" +
-                evt.data.type +
-                " size=" +
-                evt.data.size
-            );
-            chunks.push(evt.data);
-        };
+      // 録画進行中に、インターバルに合わせて発生するイベント
+      recorder.ondataavailable = function (evt) {
+        console.log(
+          "data available: evt.data.type=" +
+            evt.data.type +
+            " size=" +
+            evt.data.size
+        );
+        chunks.push(evt.data);
+      };
 
-        // 録画停止時のイベント
-        recorder.onstop = function (evt) {
-            console.log("recorder.onstop(), so playback");
-            recorder = null;
-            download();
-        };
+      // 録画停止時のイベント
+      recorder.onstop = function (evt) {
+        console.log("recorder.onstop(), so playback");
+        recorder = null;
+        download();
+      };
 
-        // 録画スタート
-        recorder.start(1000); // インターバルは1000ms
-        console.log("start recording");
+      // 録画スタート
+      recorder.start(1000); // インターバルは1000ms
+      console.log("start recording");
     }
 
     // -- 録画停止 --
     function stopRecording() {
-        if (recorder) {
-            recorder.stop();
-            console.log("stop recording");
-        }
+      if (recorder) {
+        recorder.stop();
+        console.log("stop recording");
+      }
     }
 
     // -- ダウンロード --
     function download() {
-        if (!blobUrl) {
-            window.URL.revokeObjectURL(blobUrl);
-            blobUrl = null;
-        }
+      if (!blobUrl) {
+        window.URL.revokeObjectURL(blobUrl);
+        blobUrl = null;
+      }
 
-        // Blob
-        var videoBlob = new Blob(chunks, {
-            type: "video/webm",
-        });
+      // Blob
+      var videoBlob = new Blob(chunks, {
+        type: "video/webm",
+      });
 
-        // 再生できるようにURLを生成
-        blobUrl = window.URL.createObjectURL(videoBlob);
+      // 再生できるようにURLを生成
+      blobUrl = window.URL.createObjectURL(videoBlob);
 
-        // ダウンロードの準備
-        anchor.download = "recorded.webm";
-        anchor.href = blobUrl;
+      // ダウンロードの準備
+      anchor.download = "recorded.webm";
+      anchor.href = blobUrl;
     }
 
     //------------------------------
@@ -768,228 +905,296 @@
     let newPosition = new THREE.Vector3(0, 0, 0);
 
     function createKidan() {
-        kidan = new THREE.Group();
-        scene.add(kidan);
+      kidan = new THREE.Group();
+      scene.add(kidan);
 
-        magmaMap = drawMagmaBall(kidan);
-        ouraMap = drawOuraBall(kidan);
-        glow = drawGlow(kidan);
-        drawSparkAll(kidan);
-        drawFlares(kidan);
-        inGrow = addInGrow(kidan);
+      magmaMap = drawMagmaBall(kidan);
+      ouraMap = drawOuraBall(kidan);
+      glow = drawGlow(kidan);
+      drawSparkAll(kidan);
+      drawFlares(kidan);
+      inGrow = addInGrow(kidan);
+    }
+
+    function updateScouter() {
+      if (scouter_canvas == null) {
+        return;
+      }
+      const context = scouter_canvas.getContext("2d");
+
+      // 描画をクリア
+      context.clearRect(0, 0, scouter_canvas.width, scouter_canvas.height);
+
+      // キャンバス全体を塗りつぶすには、以下のようにします。
+      context.fillStyle = "rgba(" + [0, 255, 0, 0.2] + ")";
+      context.fillRect(0, 0, scouter_canvas.width, scouter_canvas.height);
+
+      const height = scouter_canvas.height * 0.03;
+
+      //   context.fillStyle = "green";
+      context.fillStyle = "limegreen";
+      //   console.log("...." + face_mouse_distance);
+      context.fillRect(10, 10, face_mouse_distance * 3, height);
+      context.fillRect(10, 30, face_mayu_width, height);
+      context.fillRect(10, 50, face_mouce_width * 2, height);
+      context.fillRect(10, 70, face_nose_height * 2, height);
+      context.fillRect(10, 90, face_ago_width * 3, height);
+
+      context.save();
+
+      // 線の色
+      context.strokeStyle = "limegreen";
+      // 線の太さ(px)
+      context.lineWidth = 8;
+
+      context.beginPath(); // パスの初期化
+      context.setLineDash([30, 10, 10, 8]);
+      // 円の中心座標: (100,100)
+      // 半径: 50
+      // 開始角度: 0度 (0 * Math.PI / 180)
+      // 終了角度: 360度 (360 * Math.PI / 180)
+      // 方向: true=反時計回りの円、false=時計回りの円
+      console.log("face_position_x:" + face_position_x);
+      context.arc(
+        scouter_canvas.width - face_position_x,
+        face_position_y,
+        face_width / 2 + 20,
+        0,
+        2 * Math.PI,
+        false
+      );
+      context.closePath(); // パスを閉じる
+      context.stroke();
+
+      // 三角を書く
+      context.restore();
+      context.beginPath();
+
+      const x = scouter_canvas.width - face_position_x;
+      const y = face_position_y + 140;
+
+      context.lineWidth = 3;
+      context.moveTo(x, y); //最初の点の場所
+      context.lineTo(x - 20, y + 30); //2番目の点の場所
+      context.lineTo(x + 20, y + 30); //3番目の点の場所
+      context.closePath(); //三角形の最後の線 closeさせる
+      context.strokeStyle = "limegreen"; //枠線の色
+      context.stroke();
+      context.fillStyle = "limegreen"; //塗りつぶしの色
+      context.fill();
     }
 
     function updateKidan() {
-        if (kidan == null) {
-            return
-        }
+      if (kidan == null) {
+        return;
+      }
 
-        // ゲージの値をチェックして各種属性値を調整
-        checkGauge();
+      // ゲージの値をチェックして各種属性値を調整
+      checkGauge();
 
-        // console.log("before point(x,y): (" + gBeforeX + "," + gBeforeY + ")");
-        // console.log("       point(x,y): (" + gX + "," + gY + ")");
+      // console.log("before point(x,y): (" + gBeforeX + "," + gBeforeY + ")");
+      // console.log("       point(x,y): (" + gX + "," + gY + ")");
 
-        var nextPosition = getNextPosition(gBeforeX, gBeforeY, gX, gY);
+      var nextPosition = getNextPosition(gBeforeX, gBeforeY, gX, gY);
 
-        // グローバル座標に変換
-        const start = getStartPosition(nextPosition.x, nextPosition.y);
+      // グローバル座標に変換
+      const start = getStartPosition(nextPosition.x, nextPosition.y);
 
-        // 始点 (zは衝突検知用の壁と同じにする必要がある)
-        newPosition = new THREE.Vector3(start.x, start.y, 0);
+      // 始点 (zは衝突検知用の壁と同じにする必要がある)
+      newPosition = new THREE.Vector3(start.x, start.y, 0);
 
-        updateMagmaBall(magmaMap);
-        updateOuraBall(ouraMap);
-        updateSparkAll();
-        updateFlares();
-        updateGlow(glow);
-        updateInGrow(inGrow);
+      updateMagmaBall(magmaMap);
+      updateOuraBall(ouraMap);
+      updateSparkAll();
+      updateFlares();
+      updateGlow(glow);
+      updateInGrow(inGrow);
     }
 
     function drawMagmaBall(ball) {
-        // テクスチャー読み込み
-        var loader = new THREE.TextureLoader();
-        var map = loader.load("textures/magma.png");
+      // テクスチャー読み込み
+      var loader = new THREE.TextureLoader();
+      var map = loader.load("textures/magma.png");
 
-        const geometry = new THREE.SphereGeometry(2, 20, 20);
-        const material = new THREE.MeshBasicMaterial({
-            map: map,
-        });
+      const geometry = new THREE.SphereGeometry(2, 20, 20);
+      const material = new THREE.MeshBasicMaterial({
+        map: map,
+      });
 
-        // テクスチャーをあてた球のMeshを作成します。
-        magma = new THREE.Mesh(geometry, material);
-        // 縦横でリピートするように設定します。
-        map.wrapS = map.wrapT = THREE.RepeatWrapping;
+      // テクスチャーをあてた球のMeshを作成します。
+      magma = new THREE.Mesh(geometry, material);
+      // 縦横でリピートするように設定します。
+      map.wrapS = map.wrapT = THREE.RepeatWrapping;
 
-        magma.position.x = 0;
-        magma.position.y = 0;
-        magma.position.z = 0;
+      magma.position.x = 0;
+      magma.position.y = 0;
+      magma.position.z = 0;
 
-        // シーンに追加
-        scene.add(magma);
-        ball.add(magma);
+      // シーンに追加
+      scene.add(magma);
+      ball.add(magma);
 
-        return map;
+      return map;
     }
 
     function updateMagmaBall(map) {
-        // 毎フレーム位置を0.005ずつ動かす。
-        //   map.offset.x += 0.007;
-        //   map.offset.y += 0.008;
-        map.offset.x += 0.001;
-        map.offset.y += 0.002;
+      // 毎フレーム位置を0.005ずつ動かす。
+      //   map.offset.x += 0.007;
+      //   map.offset.y += 0.008;
+      map.offset.x += 0.001;
+      map.offset.y += 0.002;
 
-        magma.position.x = newPosition.x;
-        magma.position.y = newPosition.y;
-        magma.position.z = 0;
+      magma.position.x = newPosition.x;
+      magma.position.y = newPosition.y;
+      magma.position.z = 0;
 
-        let magnification = (gauge / 100) * 12;
-        magma.scale.set(magnification, magnification, magnification);
+      let magnification = (gauge / 100) * 12;
+      magma.scale.set(magnification, magnification, magnification);
     }
 
     function drawOuraBall(ball) {
-        // テクスチャー読み込み
-        var loader = new THREE.TextureLoader();
-        var map = loader.load("textures/aura3_type2.png");
+      // テクスチャー読み込み
+      var loader = new THREE.TextureLoader();
+      var map = loader.load("textures/aura3_type2.png");
 
-        const geometry = new THREE.SphereGeometry(2.05, 20, 20);
-        const material = new THREE.MeshBasicMaterial({
-            map: map,
-            blending: THREE.AdditiveBlending,
-            transparent: true,
-        });
+      const geometry = new THREE.SphereGeometry(2.05, 20, 20);
+      const material = new THREE.MeshBasicMaterial({
+        map: map,
+        blending: THREE.AdditiveBlending,
+        transparent: true,
+      });
 
-        // テクスチャーをあてた球のMeshを作成します。
-        aura = new THREE.Mesh(geometry, material);
-        // 縦横でリピートするように設定します。
-        map.wrapS = map.wrapT = THREE.RepeatWrapping;
+      // テクスチャーをあてた球のMeshを作成します。
+      aura = new THREE.Mesh(geometry, material);
+      // 縦横でリピートするように設定します。
+      map.wrapS = map.wrapT = THREE.RepeatWrapping;
 
-        aura.position.x = 0;
-        aura.position.y = 0;
-        aura.position.z = 0;
+      aura.position.x = 0;
+      aura.position.y = 0;
+      aura.position.z = 0;
 
-        // シーンに追加
-        scene.add(aura);
-        ball.add(aura);
+      // シーンに追加
+      scene.add(aura);
+      ball.add(aura);
 
-        return map;
+      return map;
     }
 
     function updateOuraBall(map) {
-        // 毎フレーム位置を0.005ずつ動かす。
-        map.offset.x += 0.005;
-        map.offset.y += 0.005;
+      // 毎フレーム位置を0.005ずつ動かす。
+      map.offset.x += 0.005;
+      map.offset.y += 0.005;
 
-        aura.position.x = newPosition.x;
-        aura.position.y = newPosition.y;
-        aura.position.z = 0;
+      aura.position.x = newPosition.x;
+      aura.position.y = newPosition.y;
+      aura.position.z = 0;
 
-        let magnification = (gauge / 100) * 12;
-        aura.scale.set(magnification, magnification, magnification);
+      let magnification = (gauge / 100) * 12;
+      aura.scale.set(magnification, magnification, magnification);
     }
 
     function drawGlow(ball) {
-        // テクスチャーを読み込みます。
-        var loader = new THREE.TextureLoader();
-        var map = loader.load("textures/Particle01.png");
+      // テクスチャーを読み込みます。
+      var loader = new THREE.TextureLoader();
+      var map = loader.load("textures/Particle01.png");
 
-        // マテリアル
-        var material = new THREE.SpriteMaterial({
-            map: map,
-            color: 0xffffff,
-            blending: THREE.AdditiveBlending,
-            opacity: 0.8,
-            transparent: true,
-        });
+      // マテリアル
+      var material = new THREE.SpriteMaterial({
+        map: map,
+        color: 0xffffff,
+        blending: THREE.AdditiveBlending,
+        opacity: 0.8,
+        transparent: true,
+      });
 
-        // スプライト
-        var sprite = new THREE.Sprite(material);
-        sprite.scale.multiplyScalar(11);
-        //   scene.add(sprite);
-        ball.add(sprite);
+      // スプライト
+      var sprite = new THREE.Sprite(material);
+      sprite.scale.multiplyScalar(11);
+      //   scene.add(sprite);
+      ball.add(sprite);
 
-        return sprite;
+      return sprite;
     }
 
     function updateGlow(glow) {
-        glow.position.x = newPosition.x;
-        glow.position.y = newPosition.y;
-        glow.position.z = newPosition.z;
+      glow.position.x = newPosition.x;
+      glow.position.y = newPosition.y;
+      glow.position.z = newPosition.z;
 
-        let magnification = (gauge / 100) * 12;
-        glow.scale.set(magnification, magnification, magnification);
+      let magnification = (gauge / 100) * 12;
+      glow.scale.set(magnification, magnification, magnification);
     }
 
     let sparks = null;
 
     function drawSparkAll(ball) {
-        sparks = new THREE.Group();
-        ball.add(sparks);
+      sparks = new THREE.Group();
+      ball.add(sparks);
 
-        let perAngle = 360 / sparkNum;
-        for (let i = 0; i < sparkNum; i++) {
-            let rad = (perAngle * i * Math.PI) / 180;
-            var spark = getSpark();
-            spark.rotation.x = 360 * Math.sin(rad);
-            spark.rotation.z = rad;
-            sparks.add(spark);
-            sparkList.push(spark);
-        }
+      let perAngle = 360 / sparkNum;
+      for (let i = 0; i < sparkNum; i++) {
+        let rad = (perAngle * i * Math.PI) / 180;
+        var spark = getSpark();
+        spark.rotation.x = 360 * Math.sin(rad);
+        spark.rotation.z = rad;
+        sparks.add(spark);
+        sparkList.push(spark);
+      }
     }
 
     function updateSparkAll() {
-        sparks.position.x = newPosition.x;
-        sparks.position.y = newPosition.y;
-        sparks.position.z = newPosition.z;
+      sparks.position.x = newPosition.x;
+      sparks.position.y = newPosition.y;
+      sparks.position.z = newPosition.z;
 
-        let magnification = (gauge / 100) * 12;
-        sparks.scale.set(magnification, magnification, magnification);
+      let magnification = (gauge / 100) * 12;
+      sparks.scale.set(magnification, magnification, magnification);
 
-        sparkList.forEach((spark) => {
-            updateSpark(spark);
-        });
+      sparkList.forEach((spark) => {
+        updateSpark(spark);
+      });
     }
 
     function getSpark() {
-        // テクスチャーを読み込みます。
-        var loader = new THREE.TextureLoader();
-        var map = loader.load("textures/Burst01.png");
-        map.wrapS = map.wrapT = THREE.RepeatWrapping;
+      // テクスチャーを読み込みます。
+      var loader = new THREE.TextureLoader();
+      var map = loader.load("textures/Burst01.png");
+      map.wrapS = map.wrapT = THREE.RepeatWrapping;
 
-        var geometory = new THREE.PlaneGeometry(0.15, 2);
-        var material = new THREE.MeshBasicMaterial({
-            map: map,
-            transparent: true,
-            side: THREE.DoubleSide,
-            depthWrite: false,
-            blending: THREE.AdditiveBlending,
-            opacity: 0.5,
-        });
+      var geometory = new THREE.PlaneGeometry(0.15, 2);
+      var material = new THREE.MeshBasicMaterial({
+        map: map,
+        transparent: true,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        opacity: 0.5,
+      });
 
-        // 板状のMeshを作成します。
-        var mesh = new THREE.Mesh(geometory, material);
-        mesh.position.y = Math.random() * 5;
-        mesh.rotation.y = Math.random() * 2;
+      // 板状のMeshを作成します。
+      var mesh = new THREE.Mesh(geometory, material);
+      mesh.position.y = Math.random() * 5;
+      mesh.rotation.y = Math.random() * 2;
 
-        // meshをそのまま返しても何故かうまく行かない
-        var spark = new THREE.Object3D();
-        spark.add(mesh);
+      // meshをそのまま返しても何故かうまく行かない
+      var spark = new THREE.Object3D();
+      spark.add(mesh);
 
-        return spark;
+      return spark;
     }
 
     const gSpeed = Math.random() * 0.2 + 0.2;
 
     function updateSpark(spark) {
-        var mesh = spark.children[0];
+      var mesh = spark.children[0];
 
-        mesh.position.y -= gSpeed;
-        mesh.material.opacity -= 0.05;
+      mesh.position.y -= gSpeed;
+      mesh.material.opacity -= 0.05;
 
-        if (mesh.position.y < 0) {
-            mesh.position.y = 6;
-            mesh.material.opacity = 0.5;
-        }
+      if (mesh.position.y < 0) {
+        mesh.position.y = 6;
+        mesh.material.opacity = 0.5;
+      }
     }
 
     let flareMap = null;
@@ -997,36 +1202,36 @@
     let flareDiameter = null;
 
     function getFlare(offset) {
-        const speed = Math.random() * 0.05 + 0.01;
-        const topRadius = 6;
-        flareDiameter = topRadius - flareBottomRadius;
+      const speed = Math.random() * 0.05 + 0.01;
+      const topRadius = 6;
+      flareDiameter = topRadius - flareBottomRadius;
 
-        // ジオメトリ
-        const geometry = new THREE.CylinderGeometry(
-            topRadius,
-            flareBottomRadius,
-            0,
-            30,
-            3,
-            true
-        );
+      // ジオメトリ
+      const geometry = new THREE.CylinderGeometry(
+        topRadius,
+        flareBottomRadius,
+        0,
+        30,
+        3,
+        true
+      );
 
-        // カラーマップ
-        let loader = new THREE.TextureLoader();
-        flareMap = loader.load("./textures/aura3_type2.png");
-        flareMap.wrapS = flareMap.wrapT = THREE.RepeatWrapping;
-        flareMap.repeat.set(10, 10);
+      // カラーマップ
+      let loader = new THREE.TextureLoader();
+      flareMap = loader.load("./textures/aura3_type2.png");
+      flareMap.wrapS = flareMap.wrapT = THREE.RepeatWrapping;
+      flareMap.repeat.set(10, 10);
 
-        // マテリアル
-        const material = _createMaterial(offset);
+      // マテリアル
+      const material = _createMaterial(offset);
 
-        // メッシュ
-        const mesh = new THREE.Mesh(geometry, material);
+      // メッシュ
+      const mesh = new THREE.Mesh(geometry, material);
 
-        const flare = new THREE.Object3D();
-        flare.add(mesh);
+      const flare = new THREE.Object3D();
+      flare.add(mesh);
 
-        return flare;
+      return flare;
     }
 
     /**
@@ -1034,30 +1239,30 @@
      * @return THREE.ShaderMaterial
      */
     function _createMaterial(offset) {
-        let material = new THREE.ShaderMaterial({
-            uniforms: {
-                map: {
-                    //   type : 't',
-                    value: flareMap,
-                },
-                offset: {
-                    //   type : 'v2',
-                    value: offset,
-                },
-                opacity: {
-                    //   type : 'f',
-                    value: 0.15,
-                },
-                innerRadius: {
-                    //   type : 'f',
-                    value: flareBottomRadius,
-                },
-                diameter: {
-                    //   type : 'f',
-                    value: flareDiameter,
-                },
-            },
-            vertexShader: `
+      let material = new THREE.ShaderMaterial({
+        uniforms: {
+          map: {
+            //   type : 't',
+            value: flareMap,
+          },
+          offset: {
+            //   type : 'v2',
+            value: offset,
+          },
+          opacity: {
+            //   type : 'f',
+            value: 0.15,
+          },
+          innerRadius: {
+            //   type : 'f',
+            value: flareBottomRadius,
+          },
+          diameter: {
+            //   type : 'f',
+            value: flareDiameter,
+          },
+        },
+        vertexShader: `
         varying vec2 vUv;       // フラグメントシェーダーに渡すUV座標
         varying float radius;   // フラグメントシェーダーに渡す半径
         uniform vec2 offset;    // カラーマップのズレ位置
@@ -1072,7 +1277,7 @@
           gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         }
       `,
-            fragmentShader: `
+        fragmentShader: `
         uniform sampler2D map;      // テクスチャ
         uniform float opacity;      // 透明度
         uniform float diameter;     // ドーナツの太さ
@@ -1093,12 +1298,12 @@
           gl_FragColor = baseColor * vec4(1.0, 1.0, 1.0, opacity);
         }
       `,
-            side: THREE.DoubleSide,
-            blending: THREE.AdditiveBlending,
-            depthTest: false,
-            transparent: true,
-        });
-        return material;
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending,
+        depthTest: false,
+        transparent: true,
+      });
+      return material;
     }
 
     /** ランダム係数 */
@@ -1108,10 +1313,10 @@
      * フレーム毎の更新
      */
     function updateFlare(flare, index) {
-        var offset = flareOffsetList[index];
-        //   console.log(offset);
-        offset.x += 0.004 * randomRatio;
-        offset.y -= 0.015 * randomRatio;
+      var offset = flareOffsetList[index];
+      //   console.log(offset);
+      offset.x += 0.004 * randomRatio;
+      offset.y -= 0.015 * randomRatio;
     }
 
     /** フレアの数 */
@@ -1126,56 +1331,56 @@
     let flares = null;
 
     function drawFlares(ball) {
-        flares = new THREE.Group();
-        ball.add(flares);
+      flares = new THREE.Group();
+      ball.add(flares);
 
-        let perAngle = 360 / flareNum;
-        for (let i = 0; i < flareNum; i++) {
-            let rad = (perAngle * i * Math.PI) / 180;
-            let flareOffset = new THREE.Vector2();
-            let flare = getFlare(flareOffset);
-            flareOffsetList.push(flareOffset);
-            flare.rotation.x = rad;
-            flare.rotation.y = rad;
-            flare.rotation.z = rad / 2;
-            flares.add(flare);
-            flareList.push(flare);
-        }
+      let perAngle = 360 / flareNum;
+      for (let i = 0; i < flareNum; i++) {
+        let rad = (perAngle * i * Math.PI) / 180;
+        let flareOffset = new THREE.Vector2();
+        let flare = getFlare(flareOffset);
+        flareOffsetList.push(flareOffset);
+        flare.rotation.x = rad;
+        flare.rotation.y = rad;
+        flare.rotation.z = rad / 2;
+        flares.add(flare);
+        flareList.push(flare);
+      }
     }
 
     /**
      * フレーム毎の更新です。
      */
     function updateFlares() {
-        flares.position.x = newPosition.x;
-        flares.position.y = newPosition.y;
-        flares.position.z = newPosition.z;
+      flares.position.x = newPosition.x;
+      flares.position.y = newPosition.y;
+      flares.position.z = newPosition.z;
 
-        let magnification = (gauge / 100) * 12;
-        flares.scale.set(magnification, magnification, magnification);
+      let magnification = (gauge / 100) * 12;
+      flares.scale.set(magnification, magnification, magnification);
 
-        flareList.forEach((flare, i) => {
-            updateFlare(flare, i);
-        });
+      flareList.forEach((flare, i) => {
+        updateFlare(flare, i);
+      });
     }
 
     function addInGrow(ball) {
-        // ジオメトリ
-        const geometry = new THREE.SphereGeometry(2.07, 20, 20);
+      // ジオメトリ
+      const geometry = new THREE.SphereGeometry(2.07, 20, 20);
 
-        // マテリアル
-        const material = new THREE.ShaderMaterial({
-            uniforms: {
-                glowColor: {
-                    value: new THREE.Color(0x96ecff)
-                },
-                viewVector: {
-                    value: camera.position
-                },
-                // glowColor: { type: "c", value: new THREE.Color(0x96ecff) },
-                // viewVector: { type: "v3", value: camera.position },
-            },
-            vertexShader: `
+      // マテリアル
+      const material = new THREE.ShaderMaterial({
+        uniforms: {
+          glowColor: {
+            value: new THREE.Color(0x96ecff),
+          },
+          viewVector: {
+            value: camera.position,
+          },
+          // glowColor: { type: "c", value: new THREE.Color(0x96ecff) },
+          // viewVector: { type: "v3", value: camera.position },
+        },
+        vertexShader: `
         uniform vec3 viewVector;    // カメラ位置
         varying float opacity;      // 透明度
         void main()
@@ -1193,7 +1398,7 @@
           gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         }
       `,
-            fragmentShader: `
+        fragmentShader: `
         uniform vec3 glowColor;
         varying float opacity;
         void main()
@@ -1201,26 +1406,25 @@
           gl_FragColor = vec4(glowColor, opacity);
         }
       `,
-            side: THREE.FrontSide,
-            blending: THREE.AdditiveBlending,
-            transparent: true,
-        });
+        side: THREE.FrontSide,
+        blending: THREE.AdditiveBlending,
+        transparent: true,
+      });
 
-        // メッシュ
-        const mesh = new THREE.Mesh(geometry, material);
-        ball.add(mesh);
+      // メッシュ
+      const mesh = new THREE.Mesh(geometry, material);
+      ball.add(mesh);
 
-        return mesh;
+      return mesh;
     }
 
     function updateInGrow(inGrow) {
-        inGrow.position.x = newPosition.x;
-        inGrow.position.y = newPosition.y;
-        inGrow.position.z = newPosition.z;
+      inGrow.position.x = newPosition.x;
+      inGrow.position.y = newPosition.y;
+      inGrow.position.z = newPosition.z;
 
-        let magnification = (gauge / 100) * 12;
-        inGrow.scale.set(magnification, magnification, magnification);
+      let magnification = (gauge / 100) * 12;
+      inGrow.scale.set(magnification, magnification, magnification);
     }
-</script>
-
+  </script>
 </html>
