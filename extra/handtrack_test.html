@@ -916,10 +916,15 @@
       inGrow = addInGrow(kidan);
     }
 
+    let stepCount = 0;
+
     function updateScouter() {
       if (scouter_canvas == null) {
         return;
       }
+
+      stepCount++;
+
       const context = scouter_canvas.getContext("2d");
 
       // 描画をクリア
@@ -935,10 +940,26 @@
       context.fillStyle = "limegreen";
       //   console.log("...." + face_mouse_distance);
       context.fillRect(10, 10, face_mouse_distance * 3, height);
+
       context.fillRect(10, 30, face_mayu_width, height);
+      context.font = "bold 8pt sans-serif";
+      context.strokeStyle = "limegreen";
+      context.lineWidth = 2;
+      context.fillText(
+        Math.round(face_mayu_width * 100),
+        10 + face_mayu_width + 5,
+        30 + height
+      );
+
       context.fillRect(10, 50, face_mouce_width * 2, height);
       context.fillRect(10, 70, face_nose_height * 2, height);
       context.fillRect(10, 90, face_ago_width * 3, height);
+
+      // 文字描画
+      context.font = "bold 26pt sans-serif";
+      context.strokeStyle = "limegreen";
+      context.lineWidth = 3;
+      context.fillText(Math.round(face_mouse_distance * 10000), 20, 300);
 
       context.save();
 
@@ -947,24 +968,28 @@
       // 線の太さ(px)
       context.lineWidth = 8;
 
-      context.beginPath(); // パスの初期化
-      context.setLineDash([30, 10, 10, 8]);
-      // 円の中心座標: (100,100)
-      // 半径: 50
-      // 開始角度: 0度 (0 * Math.PI / 180)
-      // 終了角度: 360度 (360 * Math.PI / 180)
-      // 方向: true=反時計回りの円、false=時計回りの円
-      console.log("face_position_x:" + face_position_x);
-      context.arc(
-        scouter_canvas.width - face_position_x,
-        face_position_y,
-        face_width / 2 + 20,
-        0,
-        2 * Math.PI,
-        false
-      );
-      context.closePath(); // パスを閉じる
-      context.stroke();
+      if (stepCount % 6 > 3) {
+        context.beginPath(); // パスの初期化
+        context.setLineDash([30, 10, 10, 8]);
+        // 円の中心座標: (100,100)
+        // 半径: 50
+        // 開始角度: 0度 (0 * Math.PI / 180)
+        // 終了角度: 360度 (360 * Math.PI / 180)
+        // 方向: true=反時計回りの円、false=時計回りの円
+
+        // console.log("face_position_x:" + face_position_x);
+
+        context.arc(
+          scouter_canvas.width - face_position_x,
+          face_position_y,
+          face_width / 2 + 20,
+          0,
+          2 * Math.PI,
+          false
+        );
+        context.closePath(); // パスを閉じる
+        context.stroke();
+      }
 
       // 三角を書く
       context.restore();
