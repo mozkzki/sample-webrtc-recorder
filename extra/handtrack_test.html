@@ -8,6 +8,7 @@
     <!-- <meta name="viewport" content="width=device-width,initial-scale=1"> -->
     <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
     <link rel="stylesheet" href="css/test.css" type="text/css" />
+    <!-- <link rel="stylesheet" type="text/css" href="http://csshake.surge.sh/csshake.min.css"> -->
 </head>
 
 <body>
@@ -38,6 +39,7 @@
             <button type="button" onclick="resetOffset();">Reset Offset</button>
             <button type="button" onclick="startRecording()">Start Recording</button>
             <button type="button" onclick="stopRecording()">Stop Recording</button>
+            <button type="button" onclick="reset()">Reset</button>
             <a href="#" id="downloadlink">Download</a>
             <div id="message">loading model...</div>
             <!--ここまで-->
@@ -108,9 +110,14 @@
     let localStream = null;
     let frame = 0;
 
+    function reset() {
+        gauge = 1;
+    }
+
     function quake() {
-        if (gauge > 30) {
+        if (gauge > 300) {
             main.className = "buruburu";
+            // main.className = "shake-littleshake-constant";
         } else {
             main.className = "none";
         }
@@ -180,11 +187,10 @@
             face_canvas.id = "face_canvas";
             face_canvas.width = window.innerWidth;
             face_canvas.height = window.innerHeight;
-            face_canvas.onclick = "offset(event)";
+            face_canvas.style.position = "absolute";
             if (flip) {
                 face_canvas.style.transform = "scaleX(-1)";
             }
-            face_canvas.style.position = "absolute";
 
             main.appendChild(face_canvas);
 
@@ -204,9 +210,15 @@
         if (flip) {
             merge_canvas.style.transform = "scaleX(-1)";
             three_canvas.style.transform = "scaleX(-1)";
+            if (face_canvas) {
+                face_canvas.style.transform = "scaleX(-1)";
+            }
         } else {
             merge_canvas.style.transform = null;
             three_canvas.style.transform = null;
+            if (face_canvas) {
+                face_canvas.style.transform = null;
+            }
         }
     }
 
@@ -230,6 +242,7 @@
             flip = false;
         }
         syncCamera();
+        toggleFlipState();
     }
 
     function init() {
@@ -976,6 +989,9 @@
         // 描画をクリア
         context.clearRect(0, 0, scouter_canvas.width, scouter_canvas.height);
 
+        // 半透明に
+        context.globalAlpha = 0.85;
+
         // キャンバス全体を塗りつぶすには、以下のようにします。
         context.fillStyle = "rgba(" + [0, 255, 0, 0.2] + ")";
         context.fillRect(0, 0, scouter_canvas.width, scouter_canvas.height);
@@ -1041,7 +1057,7 @@
         context.restore();
         context.beginPath();
 
-        const x = scouter_canvas.width - face_position_x;
+        const x = flip ? scouter_canvas.width - face_position_x : face_position_x;
         const y = face_position_y + 140;
 
         context.lineWidth = 3;
