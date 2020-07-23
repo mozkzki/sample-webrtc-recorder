@@ -17,7 +17,7 @@
         <input type="checkbox" id="label_show" checked="checked" />
         <div class="hidden_show">
             <!--非表示ここから-->
-            <input type="checkbox" id="flip" onchange="toggleFlipState()" />
+            <input type="checkbox" id="flip" onchange="toggleFlipState()" checked="checked" />
             Flip
             <input type="checkbox" id="handTracking" onchange="toggleHandTrackingState()" />
             Hand Track
@@ -223,12 +223,12 @@
     }
 
     function updateCheckboies() {
+        updateUseFrontCameraState();
         toggleFlipState();
         toggleHandTrackingState();
         debugHandTrackingState();
         toggleFaceDetectionState();
         debugFaceDetectionState();
-        updateUseFrontCameraState();
     }
 
     function updateUseFrontCameraState() {
